@@ -31,7 +31,34 @@ docker compose up --build
 
 The first account to sign up takes over the demo data. Without any API keys everything works except the real AI and voice: the assistant falls back to a rule-based parser for the demo phrases.
 
-Reset the demo data: `docker compose down -v && docker compose up --build`.
+Reset the demo data: `docker compose down -v && docker compose up --build`. **Careful:** `down -v` also deletes your local database.
+
+## Where your data lives
+
+**The live site does not share a database with your computer. It uses its own database on [Neon](https://neon.com).** Your local copy and the live site are two separate databases that never sync.
+
+```
+ Your computer (development)                 The live site (deployment)
+
+ browser                                     browser
+    │                                           │
+ docker compose                              Google Cloud Run  (one container)
+ ├─ web + API                                    │
+ └─ Postgres container ── Docker volume          └─ Neon  (hosted PostgreSQL)
+
+            two separate databases: changing one never changes the other
+```
+
+| | Local development | Live site (the deploy model) |
+|---|---|---|
+| Runs on | `docker compose up` on your computer | Google Cloud Run, pay-per-use ([guide](DEPLOY-CLOUDRUN.md)) |
+| **Database** | A Postgres container, saved in a Docker volume (`pgdata`) on your machine | **Neon** (serverless PostgreSQL), set through `DATABASE_URL` |
+| Starts with | The demo bakery (the first account to sign up takes it over) | An empty database; the app creates its own tables on first start |
+| Back up with | `./scripts/backup.sh` | `DATABASE_URL=… ./scripts/backup-remote.sh`, plus Neon's own restore options |
+
+Anything you type into the live site is saved in Neon only, and anything you do locally stays on your computer. To copy your local data to Neon once, follow step 2 of [DEPLOY-CLOUDRUN.md](DEPLOY-CLOUDRUN.md).
+
+Prefer a rented server instead of Cloud Run? [DEPLOY.md](DEPLOY.md) puts Postgres in a container on that server, with its own separate data again.
 
 ## Settings (`.env`)
 
@@ -40,10 +67,12 @@ Reset the demo data: `docker compose down -v && docker compose up --build`.
 | `OPENAI_API_KEY`, `OPENAI_MODEL` | Real AI chat and speech-to-text. Optional. |
 | `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID` | Spoken replies. Optional (the browser's voice is the fallback). |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | "Continue with Google". Optional, see below. |
+| `DATABASE_URL` | Where the database is. Docker Compose sets it for you locally. On the live site it is the **Neon** connection string, set in `env.cloudrun.yaml`. |
 | `PUBLIC_URL` | The address people open the app at, e.g. `http://localhost:8080`. |
 | `ADMIN_EMAIL` | Only this email can take over data that existed before accounts. Set it on any public server. |
 | `TRUST_PROXY_HOPS` | How many proxies sit in front of the app (see the deploy guides). |
 | `DOMAIN`, `POSTGRES_PASSWORD` | Only for a public server ([DEPLOY.md](DEPLOY.md)). |
+| `SEED_DEMO_DATA`, `PG_POOL_MAX` | Only for the one-container version: add the sample bakery to a brand-new empty database, and the size of the connection pool. |
 
 ### Log in with Google (optional)
 
@@ -105,5 +134,5 @@ Chocolate ฿400 → ฿450 moves the Shopee brownie margin from 17.2% to 13.7%.
 
 ## Putting it online
 
-- **[DEPLOY-CLOUDRUN.md](DEPLOY-CLOUDRUN.md)**: pay-per-use (Google Cloud Run + Neon). Costs almost nothing while nobody is using it.
+- **[DEPLOY-CLOUDRUN.md](DEPLOY-CLOUDRUN.md)**: the live setup: Google Cloud Run for the app and **Neon for the database** (separate from your local one). Pay-per-use, so it costs almost nothing while nobody is using it.
 - **[DEPLOY.md](DEPLOY.md)**: a rented Linux server with automatic HTTPS (Caddy). Flat monthly price, no waking-up delay.
