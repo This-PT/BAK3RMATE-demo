@@ -22,3 +22,6 @@ export const salesRangeQuery = (key) => {
   const from = RANGES.find((r) => r.key === key).from();
   return from ? `sales_from=${from}&sales_to=${daysAgo(0)}` : '';
 };
+
+// 15 Oct
+export const shortDate = (iso) => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });

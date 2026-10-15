@@ -1,9 +1,21 @@
+// The store every data request belongs to. Set by the store provider.
+let storeId = null;
+export const setStoreId = (id) => { storeId = id; };
+
+// Called when the server says the login has ended, so the app can show the login page.
+let onUnauthorized = null;
+export const setUnauthorizedHandler = (fn) => { onUnauthorized = fn; };
+
 async function request(method, url, body) {
+  const headers = {};
+  if (body) headers['Content-Type'] = 'application/json';
+  if (storeId) headers['X-Store-Id'] = String(storeId);
   const res = await fetch(url, {
     method,
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    headers,
     body: body ? JSON.stringify(body) : undefined,
   });
+  if (res.status === 401 && !url.startsWith('/api/auth/')) onUnauthorized?.();
   if (!res.ok) {
     let msg = res.statusText;
     try {

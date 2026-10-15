@@ -1,5 +1,12 @@
+create table stores (
+  id         serial primary key,
+  name       text not null,
+  created_at timestamptz default now()
+);
+
 create table supplies (
   id             serial primary key,
+  store_id int not null references stores(id) on delete cascade,
   name           text not null,
   name_th        text,
   unit           text not null,
@@ -11,9 +18,11 @@ create table supplies (
 
 create table products (
   id      serial primary key,
+  store_id int not null references stores(id) on delete cascade,
   name    text not null,
   name_th text,
-  pieces  int not null default 1
+  pieces  int not null default 1,
+  deleted_at timestamptz   -- set when moved to the trash; null = active
 );
 
 create table recipe_items (
@@ -26,6 +35,7 @@ create table recipe_items (
 
 create table shops (
   id              serial primary key,
+  store_id int not null references stores(id) on delete cascade,
   name            text not null,
   commission_pct  numeric not null default 0,
   transaction_pct numeric not null default 0,
@@ -47,7 +57,7 @@ create table listings (
 
 create table price_changes (
   id         serial primary key,
-  supply_id  int references supplies(id),
+  supply_id  int references supplies(id) on delete cascade,
   old_cost   numeric,
   new_cost   numeric,
   source     text,
@@ -57,6 +67,7 @@ create table price_changes (
 
 create table if not exists sales (
   id           serial primary key,
+  store_id     int not null references stores(id) on delete cascade,
   sold_on      date not null,
   listing_id   int references listings(id) on delete set null,
   shop_name    text not null,
@@ -67,3 +78,10 @@ create table if not exists sales (
   created_at   timestamptz default now()
 );
 create index if not exists sales_sold_on_idx on sales (sold_on);
+
+-- "deleted" rows are only hidden (deleted_at is set), so they can be restored
+alter table stores add column deleted_at timestamptz;
+alter table supplies add column deleted_at timestamptz;
+alter table shops add column deleted_at timestamptz;
+alter table listings add column deleted_at timestamptz;
+alter table sales add column deleted_at timestamptz;

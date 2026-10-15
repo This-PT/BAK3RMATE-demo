@@ -1,0 +1,11 @@
+# A throw-away copy of the app for tests: its own database, served on http://localhost:8081.
+# Used by scripts/test-app.sh. Nothing here touches your real data.
+services:
+  db:
+    ports: !override []
+  frontend:
+    ports: !override ["8081:80"]
+  backend:
+    environment:
+      GOOGLE_CLIENT_ID: test-client-id.apps.googleusercontent.com
+      GOOGLE_CLIENT_SECRET: test-secret

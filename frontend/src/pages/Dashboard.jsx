@@ -79,6 +79,9 @@ export default function Dashboard() {
           <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>All products</h2>
           <span className="muted" style={{ fontSize: 14 }}>{selected.size} of {listings.length} selected for export</span>
         </div>
+        {listings.length === 0 && (
+          <p className="muted" style={{ margin: 0, padding: '4px 24px 20px', fontSize: 15 }}>No products are sold in any shop yet. Add shops and products first, then they show up here.</p>
+        )}
         <div className="scroll-x">
           <div style={{ minWidth: 880 }}>
             <div className="thead" style={GRID}>

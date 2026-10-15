@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { api } from '../api.js';
+import { useStores } from '../store.jsx';
+import { useAuth } from '../auth.jsx';
+import StoreSwitcher from './StoreSwitcher.jsx';
 
 const icon = (paths) => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -18,11 +20,13 @@ const ITEMS = [
 ];
 
 export default function Sidebar() {
-  const [info, setInfo] = useState(null);
+  const { refresh } = useStores();
+  const { user, logout } = useAuth();
   const { pathname } = useLocation();
+  // keep the "N shops · N products" counts in the switcher fresh as you move around
   useEffect(() => {
-    api.get('/api/dashboard').then((d) => setInfo(d.kpis)).catch(() => {});
-  }, [pathname]);
+    refresh().catch(() => {});
+  }, [pathname, refresh]);
 
   return (
     <nav className="sidebar" aria-label="Main">
@@ -33,6 +37,7 @@ export default function Sidebar() {
           <span className="brand-sub">คุ้มทุน · true cost for sellers</span>
         </div>
       </div>
+      <StoreSwitcher />
       <div className="nav">
         {ITEMS.map((i) => (
           <NavLink key={i.to} to={i.to} end={i.end} className={({ isActive }) => (isActive ? 'active' : '')}>
@@ -41,9 +46,10 @@ export default function Sidebar() {
           </NavLink>
         ))}
       </div>
-      <div className="side-foot">
-        <b>Baan Brownie</b>
-        {info && <span>{info.shops} shops · {info.products_tracked} products</span>}
+      <div className="account">
+        <span className="account-name" title={user.email}>{user.name || user.email}</span>
+        {user.name && <span className="account-mail">{user.email}</span>}
+        <button className="btn" onClick={logout}>Log out</button>
       </div>
     </nav>
   );

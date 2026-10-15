@@ -1,0 +1,32 @@
+# For a public server. Layer it on top of docker-compose.yml:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# Caddy is the only thing exposed to the internet (ports 80 and 443). It gets and renews the HTTPS certificate by itself.
+# The database and the app stay on the private Docker network.
+services:
+  db:
+    restart: unless-stopped
+    ports: !override []
+  backend:
+    restart: unless-stopped
+  frontend:
+    restart: unless-stopped
+    ports: !override []
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - frontend
+    environment:
+      DOMAIN: ${DOMAIN:?Set DOMAIN in .env, e.g. DOMAIN=app.example.com}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

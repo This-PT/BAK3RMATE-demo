@@ -3,10 +3,10 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: kumtun
-      POSTGRES_PASSWORD: kumtun
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kumtun}
       POSTGRES_DB: kumtun
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./backend/db:/docker-entrypoint-initdb.d:ro
@@ -20,7 +20,7 @@ services:
     build: ./backend
     env_file: .env
     environment:
-      DATABASE_URL: postgres://kumtun:kumtun@db:5432/kumtun
+      DATABASE_URL: postgres://kumtun:${POSTGRES_PASSWORD:-kumtun}@db:5432/kumtun
       PORT: "4000"
     depends_on:
       db:

@@ -3,6 +3,7 @@ import { api, downloadFile } from '../api.js';
 import { RANGES, daysAgo, dayLabel, ymd, salesRangeQuery } from '../dates.js';
 import { baht, pct } from '../format.js';
 import KpiCard from '../components/KpiCard.jsx';
+import TrashList from '../components/TrashList.jsx';
 
 const GRID = { gridTemplateColumns: 'minmax(0,2fr) minmax(0,1.2fr) 70px minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) 80px' };
 const tone = (n) => (n < 0 ? 'bad' : 'good');
@@ -11,20 +12,24 @@ export default function SoldLog() {
   const [range, setRange] = useState('7');
   const [data, setData] = useState(null);
   const [listings, setListings] = useState([]);
+  const [loadedListings, setLoadedListings] = useState(false);
   const [form, setForm] = useState({ date: ymd(new Date()), shopId: '', listingId: '', qty: '1', price: '' });
   const [notice, setNotice] = useState('');
+  const [deleted, setDeleted] = useState([]);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
   const load = () => {
     const from = RANGES.find((r) => r.key === range).from();
     const q = from ? `?from=${from}&to=${daysAgo(0)}` : '';
+    api.get('/api/sales/deleted').then(setDeleted).catch(() => {});
     return api.get(`/api/sales${q}`).then(setData).catch((e) => setError(e.message));
   };
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [range]);
 
   useEffect(() => {
     api.get('/api/dashboard').then((d) => {
+      setLoadedListings(true);
       setListings(d.listings);
       const first = d.listings[0];
       if (first) setForm((f) => ({ ...f, shopId: String(first.shop_id), listingId: String(first.id), price: String(first.price) }));
@@ -79,11 +84,23 @@ export default function SoldLog() {
     }
   };
 
+  const restoreSale = async (it) => {
+    setError('');
+    try {
+      await api.post(`/api/sales/${it.id}/restore`);
+      setNotice(`Restored ${it.title}.`);
+      await load();
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
   const remove = async (s) => {
-    if (!window.confirm(`Delete ${s.qty} × ${s.product_name} (${s.shop_name}) from ${dayLabel(s.sold_on)}?`)) return;
+    if (!window.confirm(`Delete ${s.qty} × ${s.product_name} (${s.shop_name}) from ${dayLabel(s.sold_on)}?\n\nIt moves to "Deleted sales" below, so you can restore it later.`)) return;
     setError('');
     try {
       await api.del(`/api/sales/${s.id}`);
+      setNotice('The sale was moved to Deleted sales. You can restore it below.');
       await load();
     } catch (err) {
       setError(err.message);
@@ -103,6 +120,9 @@ export default function SoldLog() {
       </header>
       {error && <div className="error">{error}</div>}
       {notice && <div className="notice" role="status">{notice}</div>}
+      {loadedListings && listings.length === 0 && (
+        <div className="card card-pad">No products are sold in any shop of this store yet. Put a product in a shop on the Shops page, then log sales here.</div>
+      )}
 
       <form className="card card-pad sale-form" onSubmit={submit} aria-label="Log a sale">
         <label className="field">Date
@@ -177,6 +197,11 @@ export default function SoldLog() {
           </div>
         </div>
       </section>
+      <TrashList
+        title="Deleted sales"
+        items={deleted.map((d) => ({ id: d.id, title: `${d.qty} × ${d.product_name}`, detail: `${d.shop_name} · ${dayLabel(d.sold_on)} · profit ${baht(d.profit)}` }))}
+        onRestore={restoreSale}
+      />
     </>
   );
 }

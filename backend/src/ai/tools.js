@@ -3,22 +3,22 @@ import { applySupplyChange } from '../services/supplies.js';
 
 const norm = (s) => String(s ?? '').toLowerCase().replace(/\s+/g, '');
 
-// Extra spoken names that aren't in the DB columns.
+// Extra spoken names, keyed by the lowercase English name so they work in any store that uses that name.
 const SUPPLY_ALIASES = {
-  1: ['chocolate', 'choc', 'ช็อคโกแลต', 'ช็อกโกแลต', 'ช็อกโกเลต', 'ดาร์กช็อก'],
-  2: ['butter', 'เนย'],
-  3: ['sugar', 'น้ำตาล'],
-  4: ['flour', 'แป้ง', 'แป้งเค้ก'],
-  5: ['egg', 'eggs', 'ไข่', 'ไข่ไก่'],
-  6: ['creamcheese', 'cheese', 'ครีมชีส'],
-  7: ['matcha', 'มัทฉะ', 'มัจฉะ', 'ชาเขียว'],
-  8: ['box', 'กล่อง'],
+  'dark chocolate': ['chocolate', 'choc', 'ช็อคโกแลต', 'ช็อกโกแลต', 'ช็อกโกเลต', 'ดาร์กช็อก'],
+  butter: ['เนย'],
+  sugar: ['น้ำตาล'],
+  'cake flour': ['flour', 'แป้ง', 'แป้งเค้ก'],
+  eggs: ['egg', 'ไข่', 'ไข่ไก่'],
+  'cream cheese': ['creamcheese', 'cheese', 'ครีมชีส'],
+  'matcha powder': ['matcha', 'มัทฉะ', 'มัจฉะ', 'ชาเขียว'],
+  'box + label': ['box', 'กล่อง'],
 };
 const PRODUCT_ALIASES = {
-  1: ['brownie', 'บราวนี่'],
-  2: ['cookie', 'คุกกี้'],
-  3: ['matcha', 'มัทฉะ', 'มัจฉะ', 'เค้กชาเขียว'],
-  4: ['cheesecake', 'cheese cake', 'ชีสเค้ก'],
+  'brownie box (6 pcs)': ['brownie', 'บราวนี่'],
+  'butter cookie jar': ['cookie', 'คุกกี้'],
+  'matcha cake slice': ['matcha', 'มัทฉะ', 'มัจฉะ', 'เค้กชาเขียว'],
+  'cheesecake cup': ['cheesecake', 'cheese cake', 'ชีสเค้ก'],
 };
 
 function findIn(items, aliases, text) {
@@ -26,7 +26,7 @@ function findIn(items, aliases, text) {
   if (!t) return null;
   let best = null;
   for (const it of items) {
-    const names = [it.name, it.name_th, ...(aliases[it.id] || [])].filter(Boolean).map(norm);
+    const names = [it.name, it.name_th, ...(aliases[String(it.name).toLowerCase()] || [])].filter(Boolean).map(norm);
     for (const n of names) {
       if (t.includes(n) || n.includes(t)) {
         if (!best || n.length > best.len) best = { item: it, len: n.length };
@@ -107,18 +107,18 @@ const slim = (l) => ({
 
 // Handlers return { result, impacts?, change_id? }. `result` goes back to the LLM verbatim.
 export const handlers = {
-  async update_supply_price({ supply, unit_cost }) {
-    const supplies = await loadSupplies();
+  async update_supply_price(storeId, { supply, unit_cost }) {
+    const supplies = await loadSupplies(storeId);
     const s = findSupply(supplies, supply);
     if (!s) return { result: { error: `Unknown supply "${supply}"`, known: supplies.map((x) => x.name) } };
-    const r = await applySupplyChange(s.id, { unitCost: Number(unit_cost), source: 'chat' });
+    const r = await applySupplyChange(storeId, s.id, { unitCost: Number(unit_cost), source: 'chat' });
     return { result: r, impacts: r.impacts, change_id: r.change_id };
   },
-  async get_product_profit({ product, shop }) {
-    const products = await loadProducts();
+  async get_product_profit(storeId, { product, shop }) {
+    const products = await loadProducts(storeId);
     const p = findProduct(products, product);
     if (!p) return { result: { error: `Unknown product "${product}"`, known: products.map((x) => x.name) } };
-    let rows = (await computeListings()).filter((l) => l.product_id === p.id);
+    let rows = (await computeListings({ storeId })).filter((l) => l.product_id === p.id);
     if (shop) {
       const t = norm(shop);
       const f = rows.filter((l) => norm(l.shop_name).includes(t) || t.includes(norm(l.shop_name).replace('shop', '')));
@@ -126,15 +126,15 @@ export const handlers = {
     }
     return { result: { listings: rows.map(slim) } };
   },
-  async list_problem_products() {
-    const rows = (await computeListings()).filter((l) => l.status !== 'healthy');
+  async list_problem_products(storeId) {
+    const rows = (await computeListings({ storeId })).filter((l) => l.status !== 'healthy');
     return { result: { listings: rows.map(slim) } };
   },
-  async add_purchase({ supply, qty, unit_cost }) {
-    const supplies = await loadSupplies();
+  async add_purchase(storeId, { supply, qty, unit_cost }) {
+    const supplies = await loadSupplies(storeId);
     const s = findSupply(supplies, supply);
     if (!s) return { result: { error: `Unknown supply "${supply}"`, known: supplies.map((x) => x.name) } };
-    const r = await applySupplyChange(s.id, { unitCost: Number(unit_cost), addQty: Number(qty), source: 'chat' });
+    const r = await applySupplyChange(storeId, s.id, { unitCost: Number(unit_cost), addQty: Number(qty), source: 'chat' });
     return { result: r, impacts: r.impacts, change_id: r.change_id };
   },
 };

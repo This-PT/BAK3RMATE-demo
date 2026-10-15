@@ -19,17 +19,17 @@ function languageRule(message) {
   return "The user's latest message is in English. Reply in English only, even if earlier messages or the shop context are Thai.";
 }
 
-export async function chat({ message, history = [] }) {
-  if (!process.env.OPENAI_API_KEY) return { ...(await fallbackChat(message)), mode: 'offline' };
+export async function chat({ message, history = [], storeId }) {
+  if (!process.env.OPENAI_API_KEY) return { ...(await fallbackChat(message, storeId)), mode: 'offline' };
   try {
-    return { ...(await llmChat(message, history)), mode: 'ai' };
+    return { ...(await llmChat(message, history, storeId)), mode: 'ai' };
   } catch (err) {
     console.error('LLM failed, using offline fallback:', err.message);
-    return { ...(await fallbackChat(message)), mode: 'offline' };
+    return { ...(await fallbackChat(message, storeId)), mode: 'offline' };
   }
 }
 
-async function llmChat(message, history) {
+async function llmChat(message, history, storeId) {
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   const messages = [
     { role: 'system', content: SYSTEM },
@@ -53,7 +53,7 @@ async function llmChat(message, history) {
       let out;
       try {
         const handler = handlers[call.function.name];
-        out = handler ? await handler(JSON.parse(call.function.arguments || '{}')) : { result: { error: 'Unknown tool' } };
+        out = handler ? await handler(storeId, JSON.parse(call.function.arguments || '{}')) : { result: { error: 'Unknown tool' } };
       } catch (e) {
         out = { result: { error: e.message } };
       }

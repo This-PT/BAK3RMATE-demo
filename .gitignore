@@ -1,4 +1,19 @@
+# secrets and local settings: never commit these
 .env
-node_modules
-dist
+env.cloudrun.yaml
+
+# installed packages and build output
+node_modules/
+dist/
+coverage/
+
+# database backups (they contain real data)
+backups/
+kumtun-*.sql
+kumtun-*.sql.gz
+
+# editor and system files
 .DS_Store
+.vscode/
+.idea/
+*.log

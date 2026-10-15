@@ -1,13 +1,13 @@
 import { query } from '../db.js';
+import { HttpError } from '../http.js';
 import { computeListings, loadProducts, loadShops, loadListingsRaw, loadSupplies } from './listings.js';
 
 // Updates a supply's unit cost (and optionally adds stock), logs it, and returns the
 // before/after impact on every listing that uses the supply. Numbers come from the engine.
-export async function applySupplyChange(supplyId, { unitCost, addQty = 0, source = 'manual' }) {
-  const [products, shops, listings] = await Promise.all([loadProducts(), loadShops(), loadListingsRaw()]);
-  const supplies = await loadSupplies();
+export async function applySupplyChange(storeId, supplyId, { unitCost, addQty = 0, source = 'manual' }) {
+  const [products, shops, listings, supplies] = await Promise.all([loadProducts(storeId), loadShops(storeId), loadListingsRaw(storeId), loadSupplies(storeId)]);
   const supply = supplies.find((s) => s.id === supplyId);
-  if (!supply) throw new Error('Supply not found');
+  if (!supply) throw new HttpError(404, 'Supply not found');
 
   const old = supply.unit_cost;
   const newCost = unitCost ?? old;
@@ -28,7 +28,7 @@ export async function applySupplyChange(supplyId, { unitCost, addQty = 0, source
     changeId = rows[0].id;
   }
 
-  const fresh = await loadSupplies();
+  const fresh = await loadSupplies(storeId);
   const after = await computeListings({ supplies: fresh, products, shops, listings });
   const usingIds = new Set(
     products.filter((p) => p.recipe.some((r) => r.supply_id === supplyId)).map((p) => p.id),

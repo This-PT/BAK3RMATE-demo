@@ -1,20 +1,96 @@
 # Kumtun (คุ้มทุน)
 
-AI back office that shows small online sellers what each product really earns after ingredients, platform fees, ads and equipment wear. Spec: `../project_system.md`.
+An AI back office for small online sellers. It shows what each product **really** earns after ingredients, platform fees, ads and equipment wear, and keeps that number up to date whenever a price changes.
+
+> "You think you make 44.1% on the brownie box. You actually make 13.7%."
+
+**The one design rule:** the AI reads and talks, plain code does the math. The assistant turns messy Thai or English chat into structured actions and turns results back into plain language. Every cost, margin and price comes from a small, tested, deterministic engine ([`backend/src/engine/cost.js`](backend/src/engine/cost.js)), never from the AI.
+
+## What it does
+
+| Page | |
+|---|---|
+| **AI Assistant** | Chat or talk in Thai or English: "ช็อกโกแลตขึ้นกิโลละ 450" updates the price and shows the impact on every product. Replies can be read aloud. Works offline for the demo phrases. |
+| **Cost Breakdown** | A recipe per product, priced from your supplies. Edit any price as a what-if before saving. |
+| **Supply** | Ingredients and materials: stock, latest price, change since last purchase, low-stock flags. |
+| **Shops** | One shop per sales channel (Shopee, TikTok Shop, Lazada, LINE, on-site) with that platform's real fees, all editable. Each product shows "what you think you make" vs "what you actually make", and its break-even price. |
+| **Sold Log** | A daily record of what you sold. Each sale freezes its true cost, so later price changes never rewrite history. |
+| **Dashboard** | Which products lose money or run thin, plus an Excel export: today's prices per shop, then the sold log with a daily summary. |
+
+Also: several **stores** (businesses) per account, **login** with email + password or Google, and nothing is ever deleted for good (see below).
+
+## Run it
+
+You need [Docker](https://www.docker.com/products/docker-desktop/).
 
 ```bash
-cp .env.example .env     # keys are optional: the offline parser handles the demo without them
+cp .env.example .env        # every key in it is optional
 docker compose up --build
-# open http://localhost:8080
+# open http://localhost:8080 and choose "Create account"
 ```
 
-- Tests: `cd backend && npm install && npm test`
-- Local dev: `docker compose up db`, then `npm run dev` in `backend/` and `frontend/` (Vite proxies `/api` to :4000)
-- Reset demo data: `docker compose down -v && docker compose up --build`
+The first account to sign up takes over the demo data. Without any API keys everything works except the real AI and voice: the assistant falls back to a rule-based parser for the demo phrases.
+
+Reset the demo data: `docker compose down -v && docker compose up --build`.
+
+## Settings (`.env`)
+
+| Setting | What it is |
+|---|---|
+| `OPENAI_API_KEY`, `OPENAI_MODEL` | Real AI chat and speech-to-text. Optional. |
+| `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID` | Spoken replies. Optional (the browser's voice is the fallback). |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | "Continue with Google". Optional, see below. |
+| `PUBLIC_URL` | The address people open the app at, e.g. `http://localhost:8080`. |
+| `ADMIN_EMAIL` | Only this email can take over data that existed before accounts. Set it on any public server. |
+| `TRUST_PROXY_HOPS` | How many proxies sit in front of the app (see the deploy guides). |
+| `DOMAIN`, `POSTGRES_PASSWORD` | Only for a public server ([DEPLOY.md](DEPLOY.md)). |
+
+### Log in with Google (optional)
+
+1. In [Google Cloud Console](https://console.cloud.google.com) create a project, then **Google Auth Platform → Clients → Create client → Web application**.
+2. Under **Authorized redirect URIs** add `http://localhost:8080/api/auth/google/callback` (and `https://your-address/api/auth/google/callback` once it is online).
+3. Put the client ID and secret in `.env`, then `docker compose up -d --force-recreate backend`.
+4. While the Google app is in "Testing", add the Gmail addresses that may sign in under **Audience → Test users**, or click **Publish app**.
+
+## How it fits together
+
+```
+kumtun/
+├── backend/                 Node 20 + Express + PostgreSQL
+│   ├── db/                  schema and demo data (SQL)
+│   ├── src/
+│   │   ├── engine/cost.js   the cost math: pure functions, no I/O
+│   │   ├── ai/              chat tools, language handling, offline fallback
+│   │   ├── auth/            password hashing, sessions, Google sign-in, rate limits
+│   │   ├── routes/          the HTTP API
+│   │   ├── services/        loading data and running the engine
+│   │   ├── presets.js       default fees per platform (Thailand, Aug 2026, VAT included)
+│   │   └── sample.js        the sample bakery for new accounts
+│   └── test/                engine tests, Google checks, multi-user and delete/restore tests
+├── frontend/                React 18 + Vite
+├── scripts/                 test-app.sh, backup.sh, backup-remote.sh
+├── Dockerfile               the whole app as ONE container (for pay-per-use hosting)
+├── docker-compose*.yml      local, production and test setups
+├── Caddyfile                HTTPS for the production setup
+└── DEPLOY*.md               how to put it online
+```
+
+- **Stores:** a store is one business. Supplies, products, recipes, shops, the sold log and price history belong to one store. The browser sends the open store in an `X-Store-Id` header, and the backend only accepts stores that belong to the logged-in person.
+- **Accounts:** passwords are salted scrypt hashes. Sessions are random tokens in an HttpOnly cookie (only a hash is stored). Logins and AI calls are rate-limited. Not built yet: password reset and inviting staff into a store.
+- **Deleting:** "Delete" and "Remove" only hide things (`deleted_at`). Each page has a "Deleted …" list with Restore. A supply used by any recipe, even a deleted product's, can't be deleted.
+
+## Tests
+
+```bash
+cd backend && npm install && npm test     # cost engine and Google checks, no database needed
+./scripts/test-app.sh                     # everything, on a throw-away copy of the app (own database, port 8081)
+```
+
+`test-app.sh` never touches your real data. Don't point the tests at your real app: nothing is deleted for good, so test data would pile up in its "Deleted" lists.
 
 ## Demo numbers (fresh install)
 
-Shopee and LINE are seeded with the real fees from `shop-fee.md` (regular food seller, Thailand, Aug 2026, VAT included): Shopee 16.05% commission + 3.21% payment + ฿1.07 per order, LINE 3.21% payment only. Ads and wear are the demo values from `project_system.md`.
+Shopee uses its real fees (16.05% commission + 3.21% payment + ฿1.07 per order), LINE only the 3.21% payment fee. Ads and wear are demo values.
 
 | Shop | Product | Price | Ingredients | True cost | Profit | Margin | Think margin | Break-even | Status |
 |------|---------|------:|------------:|----------:|-------:|-------:|-------------:|-----------:|--------|
@@ -25,8 +101,9 @@ Shopee and LINE are seeded with the real fees from `shop-fee.md` (regular food s
 | LINE | Brownie box | 260 | 161.60 | 175.95 | 84.05 | 32.3% | 37.8% | 174 | Healthy |
 | LINE | Butter cookie jar | 150 | 58.00 | 66.81 | 83.19 | 55.5% | 61.3% | 65 | Healthy |
 
-- Pitch: "You think you make 44.1% on the brownie box. You actually make 13.7%."
-- Chocolate ฿400 → ฿450 moves the Shopee brownie margin 17.2% → 13.7%.
-- Joining Shopee's Xtra program (+8.56%) drops the brownie box to 5.2% margin.
-- `backend/test/cost.test.js` still checks the older flat-rate demo fees from the spec (8% / 3% / 4%) with explicit fee values, plus every worked example in `shop-fee.md`.
-# KUMTON-demo
+Chocolate ฿400 → ฿450 moves the Shopee brownie margin from 17.2% to 13.7%. Joining Shopee's Xtra program (+8.56%) drops it to 5.2%.
+
+## Putting it online
+
+- **[DEPLOY-CLOUDRUN.md](DEPLOY-CLOUDRUN.md)**: pay-per-use (Google Cloud Run + Neon). Costs almost nothing while nobody is using it.
+- **[DEPLOY.md](DEPLOY.md)**: a rented Linux server with automatic HTTPS (Caddy). Flat monthly price, no waking-up delay.

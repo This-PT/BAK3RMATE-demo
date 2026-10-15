@@ -1,5 +1,5 @@
 // Default fees per platform for a regular (non-Mall) food seller in Thailand, Aug 2026, VAT included.
-// Source: shop-fee.md. Every rate stays editable in the app.
+// Source: each platform's seller-center fee pages (Thailand, Aug 2026). Every rate stays editable in the app.
 export const PRESETS = [
   {
     key: 'shopee',

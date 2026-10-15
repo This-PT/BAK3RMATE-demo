@@ -81,7 +81,7 @@ test('status thresholds', () => {
   assert.equal(status(5), 'healthy');
 });
 
-// Real platform fees from shop-fee.md (Thailand, Aug 2026, VAT included), Brownie box at 289, ingredients 161.60.
+// Real Thai platform fees (Aug 2026, VAT included, from the platforms' seller-center pages), Brownie box at 289, ingredients 161.60.
 const platforms = {
   line: { commission_pct: 0, transaction_pct: 3.21, shipping_pct: 0 },
   lineShopping: { commission_pct: 0, transaction_pct: 3.21, shipping_pct: 0, extra_pct: 3.21 },
@@ -91,7 +91,7 @@ const platforms = {
   lazadaPremium: { commission_pct: 16.05, transaction_pct: 3.21, shipping_pct: 8.56 },
   shopeeXtra: { commission_pct: 16.05, transaction_pct: 3.21, shipping_pct: 8.56, fixed_fee_per_order: 1.07 },
 };
-// platform, total fees, left after ingredients (from the worked example in shop-fee.md)
+// platform, total fees, left after ingredients (a worked example: Brownie box at 289)
 const worked = [
   ['line', 9.28, 118.12],
   ['lineShopping', 18.56, 108.84],
@@ -102,10 +102,10 @@ const worked = [
   ['shopeeXtra', 81.47, 45.93],
 ];
 for (const [name, fees, left] of worked) {
-  test(`shop-fee.md worked example: ${name}`, () => {
+  test(`platform fee worked example: ${name}`, () => {
     const b = listingBreakdown({ price: 289, ingredientCost: 161.6, shop: platforms[name] });
     const totalFees = b.commission + b.transaction + b.shipping + b.extra + b.fixedFee;
-    // shop-fee.md rounds each fee line to a satang before adding; the engine rounds only for display
+    // the published worked example rounds each fee line to a satang before adding; the engine rounds only for display
     assert.ok(Math.abs(totalFees - fees) <= 0.011, `fees ${totalFees} vs ${fees}`);
     assert.ok(Math.abs(289 - totalFees - 161.6 - left) <= 0.011, `left ${289 - totalFees - 161.6} vs ${left}`);
   });

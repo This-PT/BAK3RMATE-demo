@@ -16,10 +16,10 @@ function extractPrice(text) {
   return nums[nums.length - 1];
 }
 
-export async function fallbackChat(message) {
+export async function fallbackChat(message, storeId) {
   const th = isThai(message);
   const text = asciiDigits(message);
-  const [supplies, products] = await Promise.all([loadSupplies(), loadProducts()]);
+  const [supplies, products] = await Promise.all([loadSupplies(storeId), loadProducts(storeId)]);
   const supply = findSupply(supplies, text);
   const product = findProduct(products, text);
   const price = extractPrice(text);
@@ -27,7 +27,7 @@ export async function fallbackChat(message) {
 
   // product + profit question takes priority ("is the cheesecake still profitable?")
   if (product && profitWord) {
-    const { result } = await handlers.get_product_profit({ product: product.name });
+    const { result } = await handlers.get_product_profit(storeId, { product: product.name });
     const rows = result.listings;
     const lines = rows.map((l) => {
       if (th) {
@@ -44,7 +44,7 @@ export async function fallbackChat(message) {
   }
 
   if (supply && price !== null && !profitWord) {
-    const { result, impacts, change_id } = await handlers.update_supply_price({ supply: supply.name, unit_cost: price });
+    const { result, impacts, change_id } = await handlers.update_supply_price(storeId, { supply: supply.name, unit_cost: price });
     const s = result.supply;
     const names = [...new Set(impacts.filter((i) => i.kind === 'ingredient').map((i) => i.product))];
     const reply = th
@@ -54,7 +54,7 @@ export async function fallbackChat(message) {
   }
 
   if (/problem|losing|thin|ปัญหา|ขาดทุน|บางลง/i.test(text) && !product) {
-    const { result } = await handlers.list_problem_products();
+    const { result } = await handlers.list_problem_products(storeId);
     const rows = result.listings;
     const reply = rows.length
       ? (th ? 'สินค้าที่ต้องระวัง: ' : 'Needs attention: ') +

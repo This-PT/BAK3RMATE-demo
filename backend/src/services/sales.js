@@ -23,15 +23,21 @@ export const sum = (rows) => {
 };
 
 // Sales between from and to (inclusive, both optional), newest first, with per-day groups.
-export async function fetchSales({ from = null, to = null } = {}) {
+export async function fetchSales({ storeId, from = null, to = null }) {
   const { rows } = await query(
-    `select * from sales where ($1::date is null or sold_on >= $1) and ($2::date is null or sold_on <= $2)
+    `select * from sales where store_id = $3 and deleted_at is null and ($1::date is null or sold_on >= $1) and ($2::date is null or sold_on <= $2)
       order by sold_on desc, id desc`,
-    [from, to],
+    [from, to, storeId],
   );
   const sales = rows.map(withMoney);
   const byDay = new Map();
   for (const s of sales) byDay.set(s.sold_on, [...(byDay.get(s.sold_on) ?? []), s]);
   const days = [...byDay.entries()].map(([date, list]) => ({ date, ...sum(list), sales: list }));
   return { totals: sum(sales), days, sales };
+}
+
+// Sales that were deleted and can be restored, newest deletion first.
+export async function fetchDeletedSales(storeId) {
+  const { rows } = await query('select * from sales where store_id = $1 and deleted_at is not null order by deleted_at desc, id desc', [storeId]);
+  return rows.map(withMoney);
 }

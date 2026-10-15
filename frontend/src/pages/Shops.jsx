@@ -5,6 +5,8 @@ import { baht, pct } from '../format.js';
 import Badge from '../components/Badge.jsx';
 import RealityCheck from '../components/RealityCheck.jsx';
 import AddShopModal from '../components/AddShopModal.jsx';
+import TrashList from '../components/TrashList.jsx';
+import { shortDate } from '../dates.js';
 
 const GRID = { gridTemplateColumns: 'minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) minmax(0,0.8fr) minmax(0,1.2fr) 170px' };
 // [field, label, unit, hint]
@@ -26,6 +28,10 @@ export default function Shops() {
   const [shopId, setShopId] = useState(null);
   const [fees, setFees] = useState(EMPTY_FEES);
   const [showAddShop, setShowAddShop] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [deletedShops, setDeletedShops] = useState([]);
+  const [removed, setRemoved] = useState([]);
+  const [notice, setNotice] = useState('');
   const [listings, setListings] = useState([]);
   const [drafts, setDrafts] = useState({}); // `${listingId}:ads|wear` -> typed string
   const [open, setOpen] = useState(null);
@@ -42,6 +48,8 @@ export default function Shops() {
     timers.current[key] = setTimeout(() => fn().catch((e) => setError(e.message)), 250);
   };
   const seq = useRef(0); // ignore listing responses that arrive out of order
+  const loadDeletedShops = () => api.get('/api/shops/deleted').then(setDeletedShops).catch(() => {});
+  const loadRemoved = (id) => api.get(`/api/shops/${id}/removed`).then(setRemoved).catch(() => setRemoved([]));
   const loadListings = async (id) => {
     const mine = ++seq.current;
     const rows = await api.get(`/api/shops/${id}/listings`);
@@ -49,7 +57,8 @@ export default function Shops() {
   };
 
   useEffect(() => {
-    api.get('/api/shops').then((s) => { setShops(s); setShopId(s[0]?.id ?? null); }).catch((e) => setError(e.message));
+    api.get('/api/shops').then((s) => { setShops(s); setShopId(s[0]?.id ?? null); }).catch((e) => setError(e.message)).finally(() => setLoaded(true));
+    loadDeletedShops();
   }, []);
 
   // Load fees, name and listings only when the selected shop changes.
@@ -60,6 +69,7 @@ export default function Shops() {
     setName(shop.name);
     setOpen(null);
     loadListings(shopId).catch((e) => setError(e.message));
+    loadRemoved(shopId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shopId]);
 
@@ -130,27 +140,57 @@ export default function Shops() {
   };
 
   const removeProduct = async (l) => {
-    if (!window.confirm(`Remove "${l.product_name}" from ${l.shop_name}? The product stays in your other shops.`)) return;
+    if (!window.confirm(`Take "${l.product_name}" out of ${l.shop_name}?\n\nIt moves to "Removed from ${l.shop_name}" below with its price, so you can put it back.`)) return;
     setError('');
     try {
       await api.del(`/api/listings/${l.id}`);
       setListings((ls) => ls.filter((x) => x.id !== l.id));
       patchShopLocal(shopId, { product_count: listings.length - 1 });
       if (open === l.id) setOpen(null);
+      setNotice(`"${l.product_name}" was taken out of ${l.shop_name}. You can put it back below.`);
+      loadRemoved(shopId);
     } catch (err) {
       setError(err.message);
     }
   };
 
+  const restoreShop = async (it) => {
+    setError('');
+    try {
+      await api.post(`/api/shops/${it.id}/restore`);
+      const list = await api.get('/api/shops');
+      setShops(list);
+      setShopId(it.id);
+      setNotice(`"${it.title}" is back with its products and prices.`);
+      loadDeletedShops();
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+
+  const restoreListing = async (it) => {
+    setError('');
+    try {
+      await api.post(`/api/listings/${it.id}/restore`);
+      setShops(await api.get('/api/shops'));
+      await Promise.all([loadListings(shopId), loadRemoved(shopId)]);
+      setNotice(`"${it.title}" is back in the shop at its old price.`);
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+
   const removeShop = async () => {
     const shop = shops.find((s) => s.id === shopId);
-    if (!shop || !window.confirm(`Delete "${shop.name}" and its ${shop.product_count} product listings? This can't be undone.`)) return;
+    if (!shop || !window.confirm(`Delete "${shop.name}"?\n\nIt is hidden with its ${shop.product_count} products and their prices. You can restore it from "Deleted shops".`)) return;
     setError('');
     try {
       await api.del(`/api/shops/${shopId}`);
       const rest = shops.filter((s) => s.id !== shopId);
       setShops(rest);
       setShopId(rest[0]?.id ?? null);
+      setNotice(`"${shop.name}" was moved to Deleted shops. You can restore it below.`);
+      loadDeletedShops();
     } catch (e) {
       setError(e.message);
     }
@@ -188,6 +228,7 @@ export default function Shops() {
         </div>
       </header>
       {error && <div className="error">{error}</div>}
+      {notice && <div className="notice" role="status">{notice}</div>}
 
       <div className="pills" role="group" aria-label="Shop">
         {shops.map((s) => (
@@ -202,6 +243,20 @@ export default function Shops() {
         <AddShopModal shops={shops} currentShopId={shopId} onClose={() => setShowAddShop(false)} onCreated={shopCreated} />
       )}
 
+      <TrashList
+        title="Deleted shops"
+        items={deletedShops.map((d) => ({ id: d.id, title: d.name, detail: `${d.product_count} ${d.product_count === 1 ? 'product' : 'products'} · deleted ${shortDate(d.deleted_at)}` }))}
+        onRestore={restoreShop}
+      />
+
+      {loaded && shops.length === 0 && (
+        <div className="card card-pad">
+          <p style={{ margin: '0 0 12px' }}>This store has no shops yet. A shop is somewhere you sell, like Shopee, LINE or a market stall. Each one has its own fees.</p>
+          <button className="btn primary" onClick={() => setShowAddShop(true)}>+ Add shop</button>
+        </div>
+      )}
+
+      {shops.length > 0 && (<>
       <section className="card fees" aria-label="Shop fees">
         <div className="intro">
           <label className="field" style={{ marginBottom: 12 }}>Shop name
@@ -352,6 +407,12 @@ export default function Shops() {
           </div>
         </div>
       </section>
+      <TrashList
+        title={`Removed from ${name || 'this shop'}`}
+        items={removed.map((r) => ({ id: r.id, title: r.product_name, detail: `Was ${baht(r.price)} · removed ${shortDate(r.deleted_at)}` }))}
+        onRestore={restoreListing}
+      />
+      </>)}
     </>
   );
 }

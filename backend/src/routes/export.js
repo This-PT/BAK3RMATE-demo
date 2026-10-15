@@ -178,17 +178,18 @@ exportRouter.get('/export.xlsx', async (req, res) => {
   const { sales_from: from, sales_to: to } = req.query;
   if ((from && !validDate(from)) || (to && !validDate(to))) return res.status(400).json({ error: 'sales_from and sales_to must be YYYY-MM-DD' });
 
-  let rows = await computeListings();
+  let rows = await computeListings({ storeId: req.storeId });
   if (ids.length) rows = rows.filter((l) => ids.includes(l.id));
   if (!rows.length) return res.status(400).json({ error: 'No listings selected' });
-  const sold = await fetchSales({ from: from || null, to: to || null });
+  const sold = await fetchSales({ storeId: req.storeId, from: from || null, to: to || null });
 
   const wb = new ExcelJS.Workbook();
   addPriceSheets(wb, rows);
   addSoldSheets(wb, sold);
 
   const now = new Date();
-  const name = `kumtun-accounting-${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}.xlsx`;
+  const slug = (req.storeName || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); // ASCII only, safe in a header
+  const name = `kumtun${slug ? `-${slug}` : ''}-accounting-${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}.xlsx`;
   res.set({
     'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     'Content-Disposition': `attachment; filename="${name}"`,

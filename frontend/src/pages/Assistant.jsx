@@ -63,7 +63,10 @@ export default function Assistant() {
     loadChanges();
     return stopSpeaking;
   }, []);
-  useEffect(() => end.current?.scrollIntoView({ block: 'end' }), [messages]);
+  // braces matter: an effect must not return scrollIntoView's result (it can be a Promise, which React cannot call)
+  useEffect(() => {
+    end.current?.scrollIntoView({ block: 'end' });
+  }, [messages]);
 
   const play = (idx, text) => {
     if (playing === idx) {
@@ -86,7 +89,7 @@ export default function Assistant() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 
   useEffect(() => {
-    api.get('/api/health').then(setCaps).catch(() => {});
+    api.get('/api/capabilities').then(setCaps).catch(() => {});
   }, []);
 
   const stopMic = () => {

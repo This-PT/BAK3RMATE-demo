@@ -3,22 +3,39 @@ import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { baht, pct } from '../format.js';
 import CostBreakdown from '../components/CostBreakdown.jsx';
+import NewProductForm from '../components/NewProductForm.jsx';
+import ImportProducts from '../components/ImportProducts.jsx';
+import TrashList from '../components/TrashList.jsx';
+import { shortDate } from '../dates.js';
+import { useStores } from '../store.jsx';
 
 const tone = (s) => (s === 'losing' ? 'bad' : s === 'thin' ? 'warn' : 'good');
 
 export default function Costs() {
+  const { stores, current } = useStores();
+  const hasOthers = stores.some((s) => s.id !== current.id);
+  const [importing, setImporting] = useState(false);
+  const [notice, setNotice] = useState('');
+  const [trash, setTrash] = useState([]);
   const [products, setProducts] = useState([]);
   const [productId, setProductId] = useState(null);
   const [edits, setEdits] = useState({}); // supply_id -> typed string (what-if only)
   const [preview, setPreview] = useState(null);
   const [error, setError] = useState('');
+  const [loaded, setLoaded] = useState(false);
+  const [creating, setCreating] = useState(false);
 
-  useEffect(() => {
+  const loadTrash = () => api.get('/api/products/deleted').then(setTrash).catch((e) => setError(e.message));
+
+  const loadProducts = (selectId) =>
     api.get('/api/products').then((p) => {
       setProducts(p);
-      setProductId(p[0]?.id ?? null);
-    }).catch((e) => setError(e.message));
-  }, []);
+      setProductId((cur) => selectId ?? (p.some((x) => x.id === cur) ? cur : p[0]?.id ?? null));
+      setPreview(null);
+      setEdits({});
+    }).catch((e) => setError(e.message)).finally(() => setLoaded(true));
+
+  useEffect(() => { loadProducts(); loadTrash(); }, []);
 
   // Ask the engine for the what-if numbers whenever an edit changes.
   useEffect(() => {
@@ -35,6 +52,30 @@ export default function Costs() {
 
   const product = products.find((p) => p.id === productId);
   const pick = (id) => { setProductId(id); setEdits({}); setPreview(null); };
+
+  // "Delete" only moves the product to the trash below. Nothing is lost until "Delete forever".
+  const deleteProduct = async () => {
+    if (!window.confirm(`Delete "${product.name}"?\n\nIt moves to "Deleted products" below, so you can restore it later with its recipe and shop prices.`)) return;
+    setError('');
+    try {
+      await api.del(`/api/products/${product.id}`);
+      setNotice(`"${product.name}" was moved to Deleted products. You can restore it below.`);
+      await Promise.all([loadProducts(), loadTrash()]);
+    } catch (e) {
+      setError(e.message);
+    }
+  };
+
+  const restoreProduct = async (p) => {
+    setError('');
+    try {
+      await api.post(`/api/products/${p.id}/restore`);
+      setNotice(`"${p.name}" is back${p.shop_count ? `, in ${p.shop_count} ${p.shop_count === 1 ? 'shop' : 'shops'} with its old prices` : ''}.`);
+      await Promise.all([loadProducts(p.id), loadTrash()]);
+    } catch (e) {
+      setError(e.message);
+    }
+  };
 
   const rows = product && preview
     ? product.recipe.map((r) => {
@@ -55,15 +96,57 @@ export default function Costs() {
           <h1>Cost Breakdown</h1>
           <p>AI read your recipe and priced each ingredient from Supply. Change any price to see the new cost instantly.</p>
         </div>
-        <button className="btn" onClick={() => setEdits({})} disabled={Object.keys(edits).length === 0}>Reset to Supply prices</button>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          <button className="btn" onClick={() => setEdits({})} disabled={Object.keys(edits).length === 0}>Reset to Supply prices</button>
+          {hasOthers && <button className="btn" onClick={() => { setImporting(!importing); setCreating(false); setNotice(''); }}>{importing ? 'Cancel import' : 'Import from another store'}</button>}
+          {product && <button className="btn danger" onClick={deleteProduct}>Delete product</button>}
+        </div>
       </header>
       {error && <div className="error">{error}</div>}
+      {notice && <div className="notice" role="status">{notice}</div>}
 
       <div className="pills" role="group" aria-label="Product">
         {products.map((p) => (
           <button key={p.id} className="pill" aria-pressed={p.id === productId} onClick={() => pick(p.id)}>{p.name}</button>
         ))}
+        <button className="pill add" onClick={() => { setCreating(true); setImporting(false); }}>+ New product</button>
       </div>
+
+      {importing && (
+        <ImportProducts
+          haveNames={new Set(products.map((p) => p.name.toLowerCase()))}
+          onCancel={() => setImporting(false)}
+          onDone={async (r) => {
+            setImporting(false);
+            const parts = [`Copied ${r.added.length} ${r.added.length === 1 ? 'product' : 'products'} from ${r.from}: ${r.added.join(', ')}.`];
+            if (r.new_supplies.length) parts.push(`Also added the ingredients ${r.new_supplies.join(', ')} (no stock yet).`);
+            if (r.skipped.length) parts.push(`Skipped ${r.skipped.join(', ')} (already here).`);
+            parts.push('Put them in a shop on the Shops page to set a selling price.');
+            setNotice(parts.join(' '));
+            await loadProducts();
+          }}
+        />
+      )}
+
+      <TrashList
+        title="Deleted products"
+        items={trash.map((p) => ({ id: p.id, title: p.name, detail: `Deleted ${shortDate(p.deleted_at)} · was in ${p.shop_count} ${p.shop_count === 1 ? 'shop' : 'shops'}`, raw: p }))}
+        onRestore={(it) => restoreProduct(it.raw)}
+      />
+
+      {creating && (
+        <NewProductForm
+          onCancel={() => setCreating(false)}
+          onSaved={async (id) => { setCreating(false); await loadProducts(id); }}
+        />
+      )}
+
+      {loaded && products.length === 0 && !creating && !importing && (
+        <div className="card card-pad">
+          <p style={{ margin: '0 0 12px' }}>No products in this store yet. Add your first one with its recipe and the app will work out what it costs you.</p>
+          <button className="btn primary" onClick={() => setCreating(true)}>+ New product</button>
+        </div>
+      )}
 
       {product && preview && (
         <div className="cols">
