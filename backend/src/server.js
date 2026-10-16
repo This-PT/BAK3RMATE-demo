@@ -15,7 +15,7 @@ import { storesRouter } from './routes/stores.js';
 import { storeContext } from './store.js';
 import { authRouter } from './routes/auth.js';
 import { originCheck, requireAuth } from './auth/middleware.js';
-import { limit } from './auth/limits.js';
+import { dailyAiCap, limit } from './auth/limits.js';
 
 const app = express();
 app.disable('x-powered-by');
@@ -42,7 +42,7 @@ app.get('/api/capabilities', (_req, res) =>
     tts: !!(process.env.ELEVENLABS_API_KEY && process.env.ELEVENLABS_VOICE_ID),
   }),
 );
-app.use(['/api/chat', '/api/tts', '/api/stt'], limit('ai', 40, 60_000, (req) => req.user.id)); // protects your OpenAI / ElevenLabs credit
+app.use(['/api/chat', '/api/tts', '/api/stt'], limit('ai', 40, 60_000, (req) => req.user.id), dailyAiCap); // protects your OpenAI / ElevenLabs credit
 app.use('/api', storesRouter);
 app.use('/api', storeContext);
 for (const router of [suppliesRouter, productsRouter, shopsRouter, chatRouter, ttsRouter, sttRouter, exportRouter, salesRouter]) {

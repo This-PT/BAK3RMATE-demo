@@ -124,6 +124,12 @@ authRouter.get('/google/callback', ipLimit, async (req, res) => {
   const user = await transaction(async (client) => {
     let u = (await client.query('select id, email, name, google_sub from users where google_sub = $1', [who.sub])).rows[0]
       ?? (await client.query('select id, email, name, google_sub from users where email = $1', [who.email])).rows[0];
+    if (u && !u.google_sub) {
+      // Google has verified this email, so the real owner is signing in. Anyone who registered the address earlier with
+      // a password of their own (nobody checks emails at sign-up) loses that password and every login session.
+      await client.query('update users set password_hash = null where id = $1', [u.id]);
+      await client.query('delete from sessions where user_id = $1', [u.id]);
+    }
     if (u) {
       await client.query('update users set google_sub = $2, name = coalesce(name, $3), last_login_at = now() where id = $1', [u.id, who.sub, who.name]);
       return u;

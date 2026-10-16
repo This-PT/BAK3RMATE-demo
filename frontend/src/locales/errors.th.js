@@ -9,6 +9,7 @@ export const thaiErrors = [
   ['Wrong email or password', 'อีเมลหรือรหัสผ่านไม่ถูกต้อง'],
   ['Too many attempts for this email. Please wait 15 minutes and try again.', 'ลองหลายครั้งเกินไปสำหรับอีเมลนี้ กรุณารอ 15 นาทีแล้วลองใหม่'],
   ['Too many attempts. Please wait a few minutes and try again.', 'ลองหลายครั้งเกินไป กรุณารอสักครู่แล้วลองใหม่'],
+  ['The AI has reached its daily limit. Please try again tomorrow.', 'วันนี้ใช้ AI ครบโควตาแล้ว กรุณาลองใหม่พรุ่งนี้'],
   ['Please log in', 'กรุณาเข้าสู่ระบบ'],
   ['Not logged in', 'ยังไม่ได้เข้าสู่ระบบ'],
   ['Request blocked: it came from another site', 'คำขอถูกบล็อก เพราะมาจากเว็บไซต์อื่น'],
