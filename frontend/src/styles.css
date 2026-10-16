@@ -340,3 +340,8 @@ input:focus-visible, button:focus-visible, a:focus-visible, select:focus-visible
 .lang-switch.dark { background: #1f2b24; border: 1px solid #3a4a41; }
 .lang-switch.dark button { color: #9faaa3; }
 .lang-switch.dark button[aria-pressed='true'] { background: #3fa174; color: #0f1a14; }
+
+.plan-bar { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px 14px; margin-bottom: -8px; }
+.plan-pick { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.plan-pick select { width: auto; }
+.plan-note { font-size: 12px; }

@@ -36,7 +36,7 @@ export default function Sidebar() {
       <div className="brand">
         <div className="brand-mark" aria-hidden="true">฿</div>
         <div>
-          <span className="brand-name">Kumtun</span>
+          <span className="brand-name">Bak3rMate</span>
           <span className="brand-sub">{t('brand.sub')}</span>
         </div>
       </div>

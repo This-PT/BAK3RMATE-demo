@@ -214,7 +214,7 @@ exportRouter.get('/export.xlsx', async (req, res) => {
 
   const now = new Date();
   const slug = (req.storeName || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); // ASCII only, safe in a header
-  const name = `kumtun${slug ? `-${slug}` : ''}-accounting-${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}.xlsx`;
+  const name = `bak3rmate${slug ? `-${slug}` : ''}-accounting-${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}.xlsx`;
   res.set({
     'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     'Content-Disposition': `attachment; filename="${name}"`,

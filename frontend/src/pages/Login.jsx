@@ -47,7 +47,7 @@ export default function Login() {
         <div className="brand" style={{ padding: 0 }}>
           <div className="brand-mark" aria-hidden="true">฿</div>
           <div>
-            <span className="brand-name" style={{ color: 'var(--ink)' }}>Kumtun</span>
+            <span className="brand-name" style={{ color: 'var(--ink)' }}>Bak3rMate</span>
             <span className="brand-sub" style={{ color: 'var(--muted)' }}>{t('brand.sub')}</span>
           </div>
         </div>

@@ -1,4 +1,4 @@
-# Putting Kumtun online
+# Putting Bak3rMate online
 
 This puts the app on a rented Linux server (a "VPS") so anyone can open it at `https://your-address`. It uses the same Docker setup you run on your computer, plus **Caddy**, which gets and renews the HTTPS certificate by itself. Only ports 80 and 443 are open to the internet; the database and the app stay private.
 

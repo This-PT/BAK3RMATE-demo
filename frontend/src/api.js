@@ -74,7 +74,7 @@ export async function speak(text, onEnd) {
 // Download a generated file (e.g. the Excel export). Returns the file name.
 export async function downloadFile(url) {
   const res = await request('GET', url);
-  const name = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') || '')?.[1] || 'kumtun-export.xlsx';
+  const name = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') || '')?.[1] || 'bak3rmate-export.xlsx';
   const href = URL.createObjectURL(await res.blob());
   const a = Object.assign(document.createElement('a'), { href, download: name });
   document.body.appendChild(a);

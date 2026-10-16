@@ -11,6 +11,8 @@ import Supply from './pages/Supply.jsx';
 import Shops from './pages/Shops.jsx';
 import SoldLog from './pages/SoldLog.jsx';
 import Dashboard from './pages/Dashboard.jsx';
+import { PlanProvider } from './plan.jsx';
+import PlanPicker from './components/PlanPicker.jsx';
 import Stores from './pages/Stores.jsx';
 
 function Shell() {
@@ -29,6 +31,7 @@ function Shell() {
     <div className="app">
       <Sidebar />
       <main className="main">
+        <PlanPicker />
         {/* keyed by store: switching store remounts the page, so everything reloads for the new store */}
         <ChatProvider key={current.id}>
         <Routes key={current.id}>
@@ -61,9 +64,11 @@ function Gate() {
 export default function App() {
   return (
     <I18nProvider>
+      <PlanProvider>
       <AuthProvider>
         <Gate />
       </AuthProvider>
+      </PlanProvider>
     </I18nProvider>
   );
 }

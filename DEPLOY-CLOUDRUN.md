@@ -1,4 +1,4 @@
-# Putting Kumtun online, pay-per-use (Google Cloud Run + Neon)
+# Putting Bak3rMate online, pay-per-use (Google Cloud Run + Neon)
 
 You pay for **visits, not for a machine**. When nobody is using the app it costs close to nothing, so the same accounts can hold your other projects too.
 

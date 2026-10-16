@@ -1,11 +1,11 @@
 // English text. Keys ending in _one are used when the number is 1.
 export default {
   // app
-  "app.title": "Kumtun · true cost for sellers",
+  "app.title": "Bak3rMate · true cost for sellers",
   "app.loadError": "Could not load your stores: {error}",
 
   // brand
-  "brand.sub": "คุ้มทุน · true cost for sellers",
+  "brand.sub": "true cost for sellers",
 
   // lang
   "lang.label": "Language",
@@ -432,4 +432,14 @@ export default {
   "newProduct.save": "Save product",
   "newProduct.afterSave": "After saving, put the product in a shop on the Shops page and set its selling price there.",
 
+  "plan.label": "Plan",
+  "plan.free": "Free",
+  "plan.monthly": "Monthly · ฿169/mo",
+  "plan.annual": "Annual · ฿140/mo (฿1,680/yr)",
+  "plan.demo": "demo, nothing is charged",
+  "plan.usage": "{n} of {max} stores used",
+  "plan.limitHit": "The {plan} plan allows {max} store(s). Pick a bigger plan at the top right to add more.",
+  "plan.freeShort": "Free",
+  "plan.monthlyShort": "Monthly",
+  "plan.annualShort": "Annual",
 };

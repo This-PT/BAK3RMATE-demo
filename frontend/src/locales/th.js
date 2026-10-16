@@ -1,7 +1,7 @@
 // ข้อความภาษาไทย (Thai). Same keys as en.js; Thai has no singular/plural forms.
 export default {
   // app
-  "app.title": "คุ้มทุน · รู้ต้นทุนจริงของคนขายของ",
+  "app.title": "Bak3rMate · รู้ต้นทุนจริงของคนขายของ",
   "app.loadError": "โหลดธุรกิจของคุณไม่สำเร็จ: {error}",
 
   // brand
@@ -420,4 +420,14 @@ export default {
   "newProduct.save": "บันทึกสินค้า",
   "newProduct.afterSave": "หลังบันทึก ให้นำสินค้าไปใส่ในช่องทางขายที่หน้าช่องทางขาย แล้วตั้งราคาขายที่นั่น",
 
+  "plan.label": "แพ็กเกจ",
+  "plan.free": "ฟรี",
+  "plan.monthly": "รายเดือน · ฿169/เดือน",
+  "plan.annual": "รายปี · ฿140/เดือน (฿1,680/ปี)",
+  "plan.demo": "ตัวอย่างเท่านั้น ไม่มีการเรียกเก็บเงิน",
+  "plan.usage": "ใช้ธุรกิจแล้ว {n} จาก {max}",
+  "plan.limitHit": "แพ็กเกจ{plan}สร้างธุรกิจได้ {max} แห่ง เลือกแพ็กเกจที่ใหญ่ขึ้นที่มุมขวาบนเพื่อเพิ่ม",
+  "plan.freeShort": "ฟรี",
+  "plan.monthlyShort": "รายเดือน",
+  "plan.annualShort": "รายปี",
 };

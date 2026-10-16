@@ -6,6 +6,7 @@ import { api } from '../api.js';
 import TrashList from '../components/TrashList.jsx';
 import { shortDate } from '../dates.js';
 import { useI18n } from '../i18n.jsx';
+import { usePlan } from '../plan.jsx';
 
 function NewStoreModal({ stores, currentId, onClose, onCreate }) {
   const { t } = useI18n();
@@ -138,8 +139,17 @@ export default function Stores() {
   useEffect(() => { loadDeleted(); }, []);
   const navigate = useNavigate();
   const location = useLocation();
-  const [showNew, setShowNew] = useState(!!location.state?.create);
-  const [error, setError] = useState('');
+  const { plan, storeLimit } = usePlan();
+  const atLimit = stores.length >= storeLimit;
+  const [showNew, setShowNew] = useState(!!location.state?.create && !atLimit);
+  const [error, setError] = useState(location.state?.create && atLimit ? limitMsg() : '');
+  function limitMsg() {
+    return t('plan.limitHit', { plan: t(`plan.${plan}Short`), max: storeLimit });
+  }
+  const tryNew = () => {
+    if (atLimit) setError(limitMsg());
+    else { setError(''); setShowNew(true); }
+  };
 
   const open = (id) => {
     select(id);
@@ -178,7 +188,7 @@ export default function Stores() {
           <h1>{t('store.pageTitle')}</h1>
           <p>{t('store.pageHelp')}</p>
         </div>
-        <button className="btn primary" onClick={() => setShowNew(true)}>{t('store.newPlus')}</button>
+        <button className="btn primary" onClick={tryNew}>{t('store.newPlus')}</button>
       </header>
       {error && <div className="error">{error}</div>}
 

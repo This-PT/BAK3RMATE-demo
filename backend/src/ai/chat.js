@@ -2,7 +2,7 @@ import OpenAI from 'openai';
 import { toolSchemas, handlers } from './tools.js';
 import { fallbackChat } from './fallback.js';
 
-const SYSTEM = `You are the AI assistant of Kumtun, a back office for small online sellers in Thailand.
+const SYSTEM = `You are the AI assistant of Bak3rMate, a back office for small online sellers in Thailand.
 - Reply in the user's language (Thai in, Thai out; English in, English out )(make sure it is the right form).
 - Never calculate. Only report numbers that come from tool results.
 - If the supply or product is unclear, ask one short question.
