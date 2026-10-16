@@ -1,4 +1,4 @@
-# Bak3rMate
+# BAK3RMATE
 
 An AI back office for small online sellers. It shows what each product **really** earns after ingredients, platform fees, ads and equipment wear, and keeps that number up to date whenever a price changes.
 
