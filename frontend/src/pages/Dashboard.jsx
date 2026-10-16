@@ -5,11 +5,14 @@ import { RANGES, salesRangeQuery } from '../dates.js';
 import { baht, bahtShort, pct } from '../format.js';
 import Badge from '../components/Badge.jsx';
 import KpiCard from '../components/KpiCard.jsx';
+import { useI18n } from '../i18n.jsx';
+import { getLang } from '../i18n-core.js';
 
 const GRID = { gridTemplateColumns: '28px minmax(0,2fr) minmax(0,1.2fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) minmax(0,0.8fr) minmax(0,1.2fr)' };
 const tone = (s) => (s === 'losing' ? 'bad' : s === 'thin' ? 'warn' : 'good');
 
 export default function Dashboard() {
+  const { t } = useI18n();
   const [data, setData] = useState(null);
   const [selected, setSelected] = useState(new Set());
   const [exported, setExported] = useState('');
@@ -27,6 +30,8 @@ export default function Dashboard() {
   if (!data) return error ? <div className="error">{error}</div> : null;
   const { kpis, listings } = data;
   const all = selected.size === listings.length;
+  // "Matcha cake slice on Shopee": the shop name without its trailing "shop"
+  const names = (items) => (items || []).map((i) => t('dash.productOn', { product: i.product, shop: i.shop })).join(', ');
   const toggle = (id) => setSelected((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
   const exportXlsx = async () => {
@@ -34,7 +39,7 @@ export default function Dashboard() {
     setError('');
     setExported('');
     try {
-      const q = [`listing_ids=${[...selected].join(',')}`, salesRangeQuery(period)].filter(Boolean).join('&');
+      const q = [`listing_ids=${[...selected].join(',')}`, salesRangeQuery(period), `lang=${getLang()}`].filter(Boolean).join('&');
       setExported(await downloadFile(`/api/export.xlsx?${q}`));
     } catch (e) {
       setError(e.message);
@@ -47,52 +52,52 @@ export default function Dashboard() {
     <>
       <header className="page-head">
         <div>
-          <h1>Dashboard</h1>
-          <p>Every product across your shops, with its true cost. Export it for your bookkeeping.</p>
+          <h1>{t('nav.dashboard')}</h1>
+          <p>{t('dash.subtitle')}</p>
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' }}>
-          <label className="field">Sold log in the file
+          <label className="field">{t('dash.soldLogInFile')}
             <select className="input" value={period} onChange={(e) => setPeriod(e.target.value)}>
-              {RANGES.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
+              {RANGES.map((r) => <option key={r.key} value={r.key}>{t(`range.${r.key}`)}</option>)}
             </select>
           </label>
           <button className="btn primary" onClick={exportXlsx} disabled={busy || selected.size === 0}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M12 4v11" /><path d="M7 10l5 5 5-5" /><path d="M4 19h16" />
           </svg>
-          {busy ? 'Preparing…' : 'Export to Excel'}
+          {busy ? t('common.preparing') : t('common.exportExcel')}
         </button>
         </div>
       </header>
       {error && <div className="error">{error}</div>}
-      {exported && <div className="notice" role="status">{exported} is ready. Part 1: today's price and cost breakdown, one sheet per shop. Part 2: the sold log and a daily summary.</div>}
+      {exported && <div className="notice" role="status">{t('dash.exportReady', { name: exported })}</div>}
 
       <div className="kpis">
-        <KpiCard label="Products tracked" value={kpis.products_tracked} sub={`in ${kpis.shops} shops`} />
-        <KpiCard label="Losing money" value={kpis.losing} tone="bad" sub={kpis.losing_names.join(', ') || 'None'} />
-        <KpiCard label="Thin margin (under 5%)" value={kpis.thin} tone="warn" sub={kpis.thin_names.join(', ') || 'None'} />
-        <KpiCard label="Stock value" value={bahtShort(kpis.stock_value)} sub={<Link to="/supply">View Supply</Link>} />
+        <KpiCard label={t('dash.kpiTracked')} value={kpis.products_tracked} sub={t('dash.inShops', { n: kpis.shops })} />
+        <KpiCard label={t('status.losing')} value={kpis.losing} tone="bad" sub={names(kpis.losing_items) || t('common.none')} />
+        <KpiCard label={t('dash.kpiThin')} value={kpis.thin} tone="warn" sub={names(kpis.thin_items) || t('common.none')} />
+        <KpiCard label={t('supply.kpiValue')} value={bahtShort(kpis.stock_value)} sub={<Link to="/supply">{t('dash.viewSupply')}</Link>} />
       </div>
 
-      <section className="card" aria-label="All products">
+      <section className="card" aria-label={t('dash.allProducts')}>
         <div className="card-pad" style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>All products</h2>
-          <span className="muted" style={{ fontSize: 14 }}>{selected.size} of {listings.length} selected for export</span>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>{t('dash.allProducts')}</h2>
+          <span className="muted" style={{ fontSize: 14 }}>{t('dash.selected', { n: selected.size, total: listings.length })}</span>
         </div>
         {listings.length === 0 && (
-          <p className="muted" style={{ margin: 0, padding: '4px 24px 20px', fontSize: 15 }}>No products are sold in any shop yet. Add shops and products first, then they show up here.</p>
+          <p className="muted" style={{ margin: 0, padding: '4px 24px 20px', fontSize: 15 }}>{t('dash.empty')}</p>
         )}
         <div className="scroll-x">
           <div style={{ minWidth: 880 }}>
             <div className="thead" style={GRID}>
-              <span><input className="chk" type="checkbox" checked={all} aria-label="Select all products"
+              <span><input className="chk" type="checkbox" checked={all} aria-label={t('dash.selectAll')}
                 onChange={() => setSelected(all ? new Set() : new Set(listings.map((l) => l.id)))} /></span>
-              <span>Product</span><span>Shop</span><span className="r">Price</span><span className="r">True cost</span>
-              <span className="r">Profit / order</span><span className="r">Margin</span><span>Status</span>
+              <span>{t('common.product')}</span><span>{t('common.shop')}</span><span className="r">{t('common.price')}</span><span className="r">{t('common.trueCost')}</span>
+              <span className="r">{t('shops.colProfit')}</span><span className="r">{t('common.margin')}</span><span>{t('common.status')}</span>
             </div>
             {listings.map((l) => (
               <div className="trow" style={GRID} key={l.id}>
-                <span><input className="chk" type="checkbox" checked={selected.has(l.id)} onChange={() => toggle(l.id)} aria-label={`Select ${l.product_name} on ${l.shop_name}`} /></span>
+                <span><input className="chk" type="checkbox" checked={selected.has(l.id)} onChange={() => toggle(l.id)} aria-label={t('dash.selectRow', { product: l.product_name, shop: l.shop_name })} /></span>
                 <span style={{ fontWeight: 500 }}>{l.product_name}</span>
                 <span className="muted">{l.shop_name}</span>
                 <span className="mono r">{baht(l.price)}</span>

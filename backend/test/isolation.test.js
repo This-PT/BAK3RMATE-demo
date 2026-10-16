@@ -3,6 +3,7 @@
 // Do NOT point this at your real app: nothing is ever deleted for good, so test data would pile up in its trash.
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import ExcelJS from 'exceljs';
 
 const BASE = process.env.KUMTUN_URL;
 const skip = !BASE;
@@ -530,6 +531,30 @@ test('stores are isolated', { skip }, async (t) => {
     const bShop = (await call('GET', '/shops', { ...B_, store: mineB[0].id })).json[0];
     assert.equal((await call('PATCH', `/shops/${bShop.id}`, { store: origin, body: { name: 'x' } })).status, 404);
     assert.equal((await call('DELETE', `/shops/${bShop.id}`, { store: origin })).status, 404);
+  });
+
+  await t.test('the Excel file follows the language: sheet names and headers in Thai or English', async () => {
+    const sheets = async (lang) => {
+      const res = await fetch(`${BASE}/api/export.xlsx${lang ? `?lang=${lang}` : ''}`, { headers: { 'X-Store-Id': String(origin), Cookie: jar } });
+      assert.equal(res.status, 200);
+      const wb = new ExcelJS.Workbook();
+      await wb.xlsx.load(Buffer.from(await res.arrayBuffer()));
+      return wb;
+    };
+    const en = await sheets();
+    assert.ok(en.worksheets.some((w) => w.name === 'Sold Log'));
+    assert.ok(en.worksheets.some((w) => w.name.startsWith('Price - ')));
+    assert.equal(en.getWorksheet('Sold Log').getRow(1).getCell(1).value, 'Date');
+    const th = await sheets('th');
+    assert.ok(th.worksheets.some((w) => w.name === 'บันทึกยอดขาย'));
+    assert.ok(th.worksheets.some((w) => w.name === 'สรุปยอดขายรายวัน'));
+    assert.ok(th.worksheets.some((w) => w.name.startsWith('ราคา - ')));
+    assert.equal(th.getWorksheet('บันทึกยอดขาย').getRow(1).getCell(1).value, 'วันที่');
+    const price = th.worksheets.find((w) => w.name.startsWith('ราคา - '));
+    assert.equal(price.getRow(1).getCell(1).value, 'สินค้า');
+    assert.ok(['กำไรดี', 'กำไรบาง', 'ขาดทุน'].includes(price.getRow(2).getCell(14).value)); // status text is Thai too
+    // an unknown language falls back to English
+    assert.ok((await sheets('fr')).worksheets.some((w) => w.name === 'Sold Log'));
   });
 
   await t.test('rename and delete stores; the last store cannot be deleted', async () => {

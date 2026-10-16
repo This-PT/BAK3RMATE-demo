@@ -1,3 +1,5 @@
+import { translateError } from './i18n-core.js';
+
 // The store every data request belongs to. Set by the store provider.
 let storeId = null;
 export const setStoreId = (id) => { storeId = id; };
@@ -23,7 +25,7 @@ async function request(method, url, body) {
     } catch {
       /* not json */
     }
-    throw new Error(msg);
+    throw new Error(translateError(msg));
   }
   return res;
 }

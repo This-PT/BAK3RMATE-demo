@@ -1,5 +1,8 @@
+import { useI18n } from '../i18n.jsx';
+
 // A collapsible "Deleted ..." list. Deleting in this app only hides things, so each row has a Restore button.
 export default function TrashList({ title, items, onRestore }) {
+  const { t } = useI18n();
   if (!items || items.length === 0) return null;
   return (
     <details className="card trash">
@@ -11,7 +14,7 @@ export default function TrashList({ title, items, onRestore }) {
               <b>{it.title}</b>
               {it.detail && <span className="muted" style={{ display: 'block', fontSize: 13 }}>{it.detail}</span>}
             </span>
-            <button className="btn primary" onClick={() => onRestore(it)}>Restore</button>
+            <button className="btn primary" onClick={() => onRestore(it)}>{t('common.restore')}</button>
           </div>
         ))}
       </div>

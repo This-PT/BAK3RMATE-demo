@@ -12,4 +12,5 @@ trap 'cleanup "${1:-}"' EXIT
 $C up --build -d >/dev/null
 for _ in $(seq 1 60); do curl -sf localhost:8081/api/health >/dev/null && break; sleep 1; done
 curl -sf localhost:8081/api/health >/dev/null || { echo "test app did not start"; exit 1; }
+(cd frontend && node --test src/locales/locales.test.js)   # translations: nothing missing in English or Thai
 (cd backend && KUMTUN_URL=http://localhost:8081 node --test)

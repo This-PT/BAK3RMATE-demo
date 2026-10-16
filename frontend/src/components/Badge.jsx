@@ -1,5 +1,5 @@
-import { STATUS_LABEL } from '../format.js';
+import { statusLabel } from '../format.js';
 
 export default function Badge({ status }) {
-  return <span className={`badge ${status}`}>{STATUS_LABEL[status]}</span>;
+  return <span className={`badge ${status}`}>{statusLabel(status)}</span>;
 }

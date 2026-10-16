@@ -1,5 +1,7 @@
 import { Routes, Route } from 'react-router-dom';
 import { AuthProvider, useAuth } from './auth.jsx';
+import { I18nProvider, useI18n } from './i18n.jsx';
+import { ChatProvider } from './chat.jsx';
 import { StoreProvider, useStores } from './store.jsx';
 import Login from './pages/Login.jsx';
 import Sidebar from './components/Sidebar.jsx';
@@ -13,11 +15,12 @@ import Stores from './pages/Stores.jsx';
 
 function Shell() {
   const { current, error, refresh } = useStores();
+  const { t } = useI18n();
   if (error) {
     return (
       <div className="main">
-        <div className="error">Could not load your stores: {error}</div>
-        <button className="btn" onClick={() => refresh().catch(() => {})}>Try again</button>
+        <div className="error">{t('app.loadError', { error })}</div>
+        <button className="btn" onClick={() => refresh().catch(() => {})}>{t('common.tryAgain')}</button>
       </div>
     );
   }
@@ -27,6 +30,7 @@ function Shell() {
       <Sidebar />
       <main className="main">
         {/* keyed by store: switching store remounts the page, so everything reloads for the new store */}
+        <ChatProvider key={current.id}>
         <Routes key={current.id}>
           <Route path="/" element={<Assistant />} />
           <Route path="/costs" element={<Costs />} />
@@ -36,6 +40,7 @@ function Shell() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/stores" element={<Stores />} />
         </Routes>
+        </ChatProvider>
       </main>
     </div>
   );
@@ -55,8 +60,10 @@ function Gate() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <Gate />
-    </AuthProvider>
+    <I18nProvider>
+      <AuthProvider>
+        <Gate />
+      </AuthProvider>
+    </I18nProvider>
   );
 }

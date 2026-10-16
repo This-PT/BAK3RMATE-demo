@@ -8,10 +8,12 @@ import ImportProducts from '../components/ImportProducts.jsx';
 import TrashList from '../components/TrashList.jsx';
 import { shortDate } from '../dates.js';
 import { useStores } from '../store.jsx';
+import { useI18n } from '../i18n.jsx';
 
 const tone = (s) => (s === 'losing' ? 'bad' : s === 'thin' ? 'warn' : 'good');
 
 export default function Costs() {
+  const { t } = useI18n();
   const { stores, current } = useStores();
   const hasOthers = stores.some((s) => s.id !== current.id);
   const [importing, setImporting] = useState(false);
@@ -44,22 +46,22 @@ export default function Costs() {
     for (const [k, v] of Object.entries(edits)) {
       if (v !== '' && Number.isFinite(Number(v))) overrides[k] = Number(v);
     }
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       api.post(`/api/products/${productId}/preview`, { overrides }).then(setPreview).catch((e) => setError(e.message));
     }, 150);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   }, [productId, edits]);
 
   const product = products.find((p) => p.id === productId);
   const pick = (id) => { setProductId(id); setEdits({}); setPreview(null); };
 
-  // "Delete" only moves the product to the trash below. Nothing is lost until "Delete forever".
+  // "Delete" only moves the product to the "Deleted products" list below; it can be restored.
   const deleteProduct = async () => {
-    if (!window.confirm(`Delete "${product.name}"?\n\nIt moves to "Deleted products" below, so you can restore it later with its recipe and shop prices.`)) return;
+    if (!window.confirm(t('costs.confirmDelete', { name: product.name }))) return;
     setError('');
     try {
       await api.del(`/api/products/${product.id}`);
-      setNotice(`"${product.name}" was moved to Deleted products. You can restore it below.`);
+      setNotice(t('costs.movedToDeleted', { name: product.name }));
       await Promise.all([loadProducts(), loadTrash()]);
     } catch (e) {
       setError(e.message);
@@ -70,7 +72,7 @@ export default function Costs() {
     setError('');
     try {
       await api.post(`/api/products/${p.id}/restore`);
-      setNotice(`"${p.name}" is back${p.shop_count ? `, in ${p.shop_count} ${p.shop_count === 1 ? 'shop' : 'shops'} with its old prices` : ''}.`);
+      setNotice(p.shop_count ? t('costs.restoredInShops', { name: p.name, n: p.shop_count }) : t('costs.restored', { name: p.name }));
       await Promise.all([loadProducts(p.id), loadTrash()]);
     } catch (e) {
       setError(e.message);
@@ -93,23 +95,23 @@ export default function Costs() {
     <>
       <header className="page-head">
         <div>
-          <h1>Cost Breakdown</h1>
-          <p>AI read your recipe and priced each ingredient from Supply. Change any price to see the new cost instantly.</p>
+          <h1>{t('nav.costs')}</h1>
+          <p>{t('costs.subtitle')}</p>
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          <button className="btn" onClick={() => setEdits({})} disabled={Object.keys(edits).length === 0}>Reset to Supply prices</button>
-          {hasOthers && <button className="btn" onClick={() => { setImporting(!importing); setCreating(false); setNotice(''); }}>{importing ? 'Cancel import' : 'Import from another store'}</button>}
-          {product && <button className="btn danger" onClick={deleteProduct}>Delete product</button>}
+          <button className="btn" onClick={() => setEdits({})} disabled={Object.keys(edits).length === 0}>{t('costs.reset')}</button>
+          {hasOthers && <button className="btn" onClick={() => { setImporting(!importing); setCreating(false); setNotice(''); }}>{importing ? t('common.cancelImport') : t('common.importFromStore')}</button>}
+          {product && <button className="btn danger" onClick={deleteProduct}>{t('costs.deleteProduct')}</button>}
         </div>
       </header>
       {error && <div className="error">{error}</div>}
       {notice && <div className="notice" role="status">{notice}</div>}
 
-      <div className="pills" role="group" aria-label="Product">
+      <div className="pills" role="group" aria-label={t('common.product')}>
         {products.map((p) => (
           <button key={p.id} className="pill" aria-pressed={p.id === productId} onClick={() => pick(p.id)}>{p.name}</button>
         ))}
-        <button className="pill add" onClick={() => { setCreating(true); setImporting(false); }}>+ New product</button>
+        <button className="pill add" onClick={() => { setCreating(true); setImporting(false); }}>{t('costs.newProductPlus')}</button>
       </div>
 
       {importing && (
@@ -118,10 +120,10 @@ export default function Costs() {
           onCancel={() => setImporting(false)}
           onDone={async (r) => {
             setImporting(false);
-            const parts = [`Copied ${r.added.length} ${r.added.length === 1 ? 'product' : 'products'} from ${r.from}: ${r.added.join(', ')}.`];
-            if (r.new_supplies.length) parts.push(`Also added the ingredients ${r.new_supplies.join(', ')} (no stock yet).`);
-            if (r.skipped.length) parts.push(`Skipped ${r.skipped.join(', ')} (already here).`);
-            parts.push('Put them in a shop on the Shops page to set a selling price.');
+            const parts = [t('costs.importDone', { n: r.added.length, from: r.from, names: r.added.join(', ') })];
+            if (r.new_supplies.length) parts.push(t('costs.importAlsoAdded', { names: r.new_supplies.join(', ') }));
+            if (r.skipped.length) parts.push(t('common.skipped', { names: r.skipped.join(', ') }));
+            parts.push(t('costs.importPutInShop'));
             setNotice(parts.join(' '));
             await loadProducts();
           }}
@@ -129,8 +131,8 @@ export default function Costs() {
       )}
 
       <TrashList
-        title="Deleted products"
-        items={trash.map((p) => ({ id: p.id, title: p.name, detail: `Deleted ${shortDate(p.deleted_at)} · was in ${p.shop_count} ${p.shop_count === 1 ? 'shop' : 'shops'}`, raw: p }))}
+        title={t('costs.deletedTitle')}
+        items={trash.map((p) => ({ id: p.id, title: p.name, detail: t('costs.deletedDetail', { date: shortDate(p.deleted_at), n: p.shop_count }), raw: p }))}
         onRestore={(it) => restoreProduct(it.raw)}
       />
 
@@ -143,8 +145,8 @@ export default function Costs() {
 
       {loaded && products.length === 0 && !creating && !importing && (
         <div className="card card-pad">
-          <p style={{ margin: '0 0 12px' }}>No products in this store yet. Add your first one with its recipe and the app will work out what it costs you.</p>
-          <button className="btn primary" onClick={() => setCreating(true)}>+ New product</button>
+          <p style={{ margin: '0 0 12px' }}>{t('costs.empty')}</p>
+          <button className="btn primary" onClick={() => setCreating(true)}>{t('costs.newProductPlus')}</button>
         </div>
       )}
 
@@ -158,14 +160,14 @@ export default function Costs() {
               onEdit={(id, v) => setEdits((e) => ({ ...e, [id]: v }))}
             />
           </div>
-          <aside className="side" aria-label="Summary">
+          <aside className="side" aria-label={t('costs.summary')}>
             <div className="hero">
-              <span className="label">Ingredient cost per unit</span>
+              <span className="label">{t('costs.costPerUnit')}</span>
               <span className="big">{baht(preview.ingredient_cost)}</span>
-              <span className="sub">{baht(preview.per_piece)} per piece</span>
+              <span className="sub">{t('costs.perPiece', { amount: baht(preview.per_piece) })}</span>
             </div>
             <div className="card card-pad" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>Used in your shops</h2>
+              <h2 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>{t('costs.usedInShops')}</h2>
               {preview.listings.map((l) => (
                 <div key={l.id} style={{ display: 'flex', flexDirection: 'column', gap: 2, paddingBottom: 12, borderBottom: '1px solid var(--line-soft)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
@@ -173,14 +175,14 @@ export default function Costs() {
                     <span className="mono">{baht(l.price)}</span>
                   </div>
                   <span className="muted" style={{ fontSize: 13 }}>
-                    Profit after fees: <strong className={`mono ${tone(l.status)}`}>{baht(l.profit)}</strong> ({pct(l.margin)} margin)
+                    {t('costs.profitAfterFees')} <strong className={`mono ${tone(l.status)}`}>{baht(l.profit)}</strong> {t('costs.marginNote', { pct: pct(l.margin) })}
                   </span>
                 </div>
               ))}
-              <Link className="btn dark" to="/shops">See full price breakdown in Shops</Link>
+              <Link className="btn dark" to="/shops">{t('costs.seeInShops')}</Link>
             </div>
             <p className="muted" style={{ margin: 0, fontSize: 13, lineHeight: 1.55 }}>
-              Edits here are a what-if. To save a new price for everyone, update it in Supply or tell the AI Assistant.
+              {t('costs.whatIfNote')}
             </p>
           </aside>
         </div>

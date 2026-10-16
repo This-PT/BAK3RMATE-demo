@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../auth.jsx';
+import { useI18n } from '../i18n.jsx';
+import LangSwitch from '../components/LangSwitch.jsx';
 
-const GOOGLE_ERRORS = {
-  google_denied: 'Google sign-in was cancelled.',
-  google_failed: "Google sign-in didn't work. Please try again.",
-  google_off: "Google sign-in isn't set up on this server yet.",
-};
+const GOOGLE_ERRORS = { google_denied: 'login.googleDenied', google_failed: 'login.googleFailed', google_off: 'login.googleOff' };
 
 export default function Login() {
+  const { t } = useI18n();
   const { config, login, register } = useAuth();
   const [mode, setMode] = useState('login'); // login | signup
   const [form, setForm] = useState({ email: '', password: '', name: '' });
@@ -20,7 +19,7 @@ export default function Login() {
   useEffect(() => {
     const code = new URLSearchParams(window.location.search).get('login_error');
     if (code) {
-      setError(GOOGLE_ERRORS[code] || 'Sign-in failed. Please try again.');
+      setError(t(GOOGLE_ERRORS[code] || 'login.failed'));
       window.history.replaceState({}, '', window.location.pathname);
     }
   }, []);
@@ -44,17 +43,18 @@ export default function Login() {
   return (
     <div className="login-page">
       <div className="card login-card">
+        <div style={{ display: 'flex', justifyContent: 'flex-end' }}><LangSwitch /></div>
         <div className="brand" style={{ padding: 0 }}>
           <div className="brand-mark" aria-hidden="true">฿</div>
           <div>
             <span className="brand-name" style={{ color: 'var(--ink)' }}>Kumtun</span>
-            <span className="brand-sub" style={{ color: 'var(--muted)' }}>คุ้มทุน · true cost for sellers</span>
+            <span className="brand-sub" style={{ color: 'var(--muted)' }}>{t('brand.sub')}</span>
           </div>
         </div>
 
-        <div className="seg" role="tablist" aria-label="Log in or create an account">
-          <button type="button" role="tab" aria-selected={!signup} onClick={() => { setMode('login'); setError(''); }}>Log in</button>
-          <button type="button" role="tab" aria-selected={signup} onClick={() => { setMode('signup'); setError(''); }}>Create account</button>
+        <div className="seg" role="tablist" aria-label={t('login.tabsAria')}>
+          <button type="button" role="tab" aria-selected={!signup} onClick={() => { setMode('login'); setError(''); }}>{t('login.logIn')}</button>
+          <button type="button" role="tab" aria-selected={signup} onClick={() => { setMode('signup'); setError(''); }}>{t('login.createAccount')}</button>
         </div>
 
         {error && <div className="error" role="alert">{error}</div>}
@@ -68,22 +68,22 @@ export default function Login() {
                 <path fill="#FBBC05" d="M10.5 28.7c-.5-1.5-.8-3-.8-4.7s.3-3.2.8-4.7l-7.9-6.1C.9 16.4 0 20.1 0 24s.9 7.6 2.6 10.8l7.9-6.1z" />
                 <path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.5-5.8c-2.1 1.4-4.8 2.3-8.4 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z" />
               </svg>
-              Continue with Google
+              {t('login.google')}
             </a>
-            <div className="or"><span>or use your email</span></div>
+            <div className="or"><span>{t('login.orEmail')}</span></div>
           </>
         )}
 
         <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {signup && (
-            <label className="field">Your name <span className="muted" style={{ fontWeight: 400 }}>(optional)</span>
+            <label className="field">{t('login.yourName')} <span className="muted" style={{ fontWeight: 400 }}>{t('login.optional')}</span>
               <input className="input" autoComplete="name" maxLength={60} value={form.name} onChange={set('name')} />
             </label>
           )}
-          <label className="field">Email
+          <label className="field">{t('login.email')}
             <input className="input" type="email" required autoComplete="email" value={form.email} onChange={set('email')} />
           </label>
-          <label className="field">Password
+          <label className="field">{t('login.password')}
             <span style={{ display: 'flex', gap: 8 }}>
               <input
                 className="input"
@@ -96,17 +96,17 @@ export default function Login() {
                 value={form.password}
                 onChange={set('password')}
               />
-              <button type="button" className="btn" onClick={() => setShow(!show)} aria-pressed={show}>{show ? 'Hide' : 'Show'}</button>
+              <button type="button" className="btn" onClick={() => setShow(!show)} aria-pressed={show}>{show ? t('common.hide') : t('common.show')}</button>
             </span>
-            {signup && <span className="muted" style={{ fontWeight: 400 }}>At least 8 characters.</span>}
+            {signup && <span className="muted" style={{ fontWeight: 400 }}>{t('login.min8')}</span>}
           </label>
           {signup && (
             <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', fontSize: 14 }}>
               <input className="chk" type="checkbox" checked={sample} onChange={(e) => setSample(e.target.checked)} style={{ marginTop: 2 }} />
-              <span>Start with the sample bakery, so there is something to look at. You can delete it later.</span>
+              <span>{t('login.sample')}</span>
             </label>
           )}
-          <button className="btn primary" type="submit" disabled={busy}>{busy ? 'Please wait…' : signup ? 'Create account' : 'Log in'}</button>
+          <button className="btn primary" type="submit" disabled={busy}>{busy ? t('common.wait') : signup ? t('login.createAccount') : t('login.logIn')}</button>
         </form>
       </div>
     </div>

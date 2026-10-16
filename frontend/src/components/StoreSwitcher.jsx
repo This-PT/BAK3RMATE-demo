@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useStores } from '../store.jsx';
+import { useI18n } from '../i18n.jsx';
 
 // The store menu at the top of the sidebar: switch store, add one, or manage them.
 export default function StoreSwitcher() {
   const { stores, current, select } = useStores();
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const box = useRef(null);
   const navigate = useNavigate();
@@ -29,12 +31,12 @@ export default function StoreSwitcher() {
         <span className="store-ico" aria-hidden="true">{current.name.trim().charAt(0).toUpperCase()}</span>
         <span className="store-text">
           <b>{current.name}</b>
-          <small>{current.shop_count} {current.shop_count === 1 ? 'shop' : 'shops'} · {current.product_count} {current.product_count === 1 ? 'product' : 'products'}</small>
+          <small>{t('count.shops', { n: current.shop_count })} · {t('count.products', { n: current.product_count })}</small>
         </span>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M7 9l5-5 5 5M7 15l5 5 5-5" /></svg>
       </button>
       {open && (
-        <div className="store-menu" aria-label="Your stores">
+        <div className="store-menu" aria-label={t('store.yourStores')}>
           {stores.map((s) => (
             <button
               key={s.id}
@@ -48,8 +50,8 @@ export default function StoreSwitcher() {
             </button>
           ))}
           <div className="store-sep" />
-          <button className="store-item" onClick={() => { setOpen(false); navigate('/stores', { state: { create: true } }); }}>+ New store</button>
-          <Link className="store-item" to="/stores" onClick={() => setOpen(false)}>Manage stores</Link>
+          <button className="store-item" onClick={() => { setOpen(false); navigate('/stores', { state: { create: true } }); }}>{t('store.newPlus')}</button>
+          <Link className="store-item" to="/stores" onClick={() => setOpen(false)}>{t('store.manage')}</Link>
         </div>
       )}
     </div>

@@ -4,11 +4,14 @@ import { RANGES, daysAgo, dayLabel, ymd, salesRangeQuery } from '../dates.js';
 import { baht, pct } from '../format.js';
 import KpiCard from '../components/KpiCard.jsx';
 import TrashList from '../components/TrashList.jsx';
+import { useI18n } from '../i18n.jsx';
+import { getLang } from '../i18n-core.js';
 
 const GRID = { gridTemplateColumns: 'minmax(0,2fr) minmax(0,1.2fr) 70px minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) 80px' };
 const tone = (n) => (n < 0 ? 'bad' : 'good');
 
 export default function SoldLog() {
+  const { t } = useI18n();
   const [range, setRange] = useState('7');
   const [data, setData] = useState(null);
   const [listings, setListings] = useState([]);
@@ -60,7 +63,7 @@ export default function SoldLog() {
         qty: Number(form.qty),
         unit_price: Number(form.price),
       });
-      setNotice(`Logged ${sale.qty} × ${sale.product_name} (${sale.shop_name}) on ${dayLabel(sale.sold_on)}: profit ${baht(sale.profit)}.`);
+      setNotice(t('sold.logged', { qty: sale.qty, product: sale.product_name, shop: sale.shop_name, date: dayLabel(sale.sold_on), profit: baht(sale.profit) }));
       setForm((f) => ({ ...f, qty: '1' }));
       await load();
     } catch (err) {
@@ -75,8 +78,8 @@ export default function SoldLog() {
     setExporting(true);
     setError('');
     try {
-      const name = await downloadFile(`/api/export.xlsx?${salesRangeQuery(range)}`);
-      setNotice(`${name} is ready. Part 1: today's prices per shop. Part 2: the sold log and a daily summary for "${RANGES.find((r) => r.key === range).label}".`);
+      const name = await downloadFile(`/api/export.xlsx?${[salesRangeQuery(range), `lang=${getLang()}`].filter(Boolean).join('&')}`);
+      setNotice(t('sold.exportReady', { name, period: t(`range.${range}`) }));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -88,7 +91,7 @@ export default function SoldLog() {
     setError('');
     try {
       await api.post(`/api/sales/${it.id}/restore`);
-      setNotice(`Restored ${it.title}.`);
+      setNotice(t('sold.restored', { name: it.title }));
       await load();
     } catch (err) {
       setError(err.message);
@@ -96,77 +99,77 @@ export default function SoldLog() {
   };
 
   const remove = async (s) => {
-    if (!window.confirm(`Delete ${s.qty} × ${s.product_name} (${s.shop_name}) from ${dayLabel(s.sold_on)}?\n\nIt moves to "Deleted sales" below, so you can restore it later.`)) return;
+    if (!window.confirm(t('sold.confirmDelete', { qty: s.qty, product: s.product_name, shop: s.shop_name, date: dayLabel(s.sold_on) }))) return;
     setError('');
     try {
       await api.del(`/api/sales/${s.id}`);
-      setNotice('The sale was moved to Deleted sales. You can restore it below.');
+      setNotice(t('sold.movedToDeleted'));
       await load();
     } catch (err) {
       setError(err.message);
     }
   };
 
-  const t = data?.totals;
+  const totals = data?.totals;
 
   return (
     <>
       <header className="page-head">
         <div>
-          <h1>Sold Log</h1>
-          <p>Record what you sell each day. Each sale keeps the true cost from the day you logged it, so later price changes never rewrite your history.</p>
+          <h1>{t('nav.soldLog')}</h1>
+          <p>{t('sold.subtitle')}</p>
         </div>
-        <button className="btn" onClick={exportXlsx} disabled={exporting}>{exporting ? 'Preparing…' : 'Export to Excel'}</button>
+        <button className="btn" onClick={exportXlsx} disabled={exporting}>{exporting ? t('common.preparing') : t('common.exportExcel')}</button>
       </header>
       {error && <div className="error">{error}</div>}
       {notice && <div className="notice" role="status">{notice}</div>}
       {loadedListings && listings.length === 0 && (
-        <div className="card card-pad">No products are sold in any shop of this store yet. Put a product in a shop on the Shops page, then log sales here.</div>
+        <div className="card card-pad">{t('sold.noListings')}</div>
       )}
 
-      <form className="card card-pad sale-form" onSubmit={submit} aria-label="Log a sale">
-        <label className="field">Date
+      <form className="card card-pad sale-form" onSubmit={submit} aria-label={t('sold.logASale')}>
+        <label className="field">{t('common.date')}
           <input className="input" type="date" required value={form.date} max={ymd(new Date())} onChange={(e) => setForm({ ...form, date: e.target.value })} />
         </label>
-        <label className="field">Shop
+        <label className="field">{t('common.shop')}
           <select className="input" value={form.shopId} onChange={(e) => pickShop(e.target.value)} required>
             {shops.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
           </select>
         </label>
-        <label className="field" style={{ flex: '1 1 200px' }}>Product
+        <label className="field" style={{ flex: '1 1 200px' }}>{t('common.product')}
           <select className="input" value={form.listingId} onChange={(e) => pickProduct(e.target.value)} required>
-            {inShop.length === 0 && <option value="">No products in this shop</option>}
+            {inShop.length === 0 && <option value="">{t('sold.noProductsInShop')}</option>}
             {inShop.map((l) => <option key={l.id} value={l.id}>{l.product_name}</option>)}
           </select>
         </label>
-        <label className="field">Quantity
+        <label className="field">{t('sold.quantity')}
           <input className="input" style={{ width: 90 }} type="number" min="1" max="100000" step="1" required value={form.qty} onChange={(e) => setForm({ ...form, qty: e.target.value })} />
         </label>
-        <label className="field">Selling price each (฿)
+        <label className="field">{t('sold.priceEachBaht')}
           <input className="input" style={{ width: 130 }} inputMode="decimal" required value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
         </label>
-        <button className="btn primary" type="submit" disabled={saving || !form.listingId}>{saving ? 'Saving…' : '+ Log sale'}</button>
+        <button className="btn primary" type="submit" disabled={saving || !form.listingId}>{saving ? t('common.saving') : t('sold.logSalePlus')}</button>
       </form>
 
-      <div className="pills" role="group" aria-label="Period">
+      <div className="pills" role="group" aria-label={t('sold.period')}>
         {RANGES.map((r) => (
-          <button key={r.key} className="pill" aria-pressed={range === r.key} onClick={() => setRange(r.key)}>{r.label}</button>
+          <button key={r.key} className="pill" aria-pressed={range === r.key} onClick={() => setRange(r.key)}>{t(`range.${r.key}`)}</button>
         ))}
       </div>
 
-      {t && (
+      {totals && (
         <div className="kpis">
-          <KpiCard label="Units sold" value={t.units} />
-          <KpiCard label="Revenue" value={baht(t.revenue)} />
-          <KpiCard label="True cost" value={baht(t.cost)} sub="ingredients, fees, ads and wear" />
-          <KpiCard label="Profit" value={baht(t.profit)} tone={tone(t.profit)} sub={t.revenue > 0 ? `${pct(t.margin)} margin` : undefined} />
+          <KpiCard label={t('sold.kpiUnits')} value={totals.units} />
+          <KpiCard label={t('sold.kpiRevenue')} value={baht(totals.revenue)} />
+          <KpiCard label={t('common.trueCost')} value={baht(totals.cost)} sub={t('sold.costSub')} />
+          <KpiCard label={t('common.profit')} value={baht(totals.profit)} tone={tone(totals.profit)} sub={totals.revenue > 0 ? t('sold.marginSub', { pct: pct(totals.margin) }) : undefined} />
         </div>
       )}
 
-      <section className="card" aria-label="Sales by day">
+      <section className="card" aria-label={t('sold.byDay')}>
         {data && data.days.length === 0 && (
           <p className="muted" style={{ margin: 0, padding: '28px 24px', fontSize: 15 }}>
-            Nothing logged for this period yet. Use "+ Log sale" above after you sell something.
+            {t('sold.nothing')}
           </p>
         )}
         <div className="scroll-x">
@@ -175,11 +178,11 @@ export default function SoldLog() {
               <div key={day.date}>
                 <div className="day-head">
                   <h2>{dayLabel(day.date)}</h2>
-                  <span className="muted">{day.units} sold · {baht(day.revenue)} revenue · <strong className={tone(day.profit)}>{baht(day.profit)} profit</strong></span>
+                  <span className="muted">{t('sold.daySold', { n: day.units })} · {t('sold.dayRevenue', { amount: baht(day.revenue) })} · <strong className={tone(day.profit)}>{t('sold.dayProfit', { amount: baht(day.profit) })}</strong></span>
                 </div>
                 <div className="thead" style={GRID}>
-                  <span>Product</span><span>Shop</span><span className="r">Qty</span>
-                  <span className="r">Price each</span><span className="r">Revenue</span><span className="r">Profit</span><span />
+                  <span>{t('common.product')}</span><span>{t('common.shop')}</span><span className="r">{t('sold.colQty')}</span>
+                  <span className="r">{t('sold.colPriceEach')}</span><span className="r">{t('sold.kpiRevenue')}</span><span className="r">{t('common.profit')}</span><span />
                 </div>
                 {day.sales.map((s) => (
                   <div className="trow" style={GRID} key={s.id}>
@@ -189,7 +192,7 @@ export default function SoldLog() {
                     <span className="mono r">{baht(s.unit_price)}</span>
                     <span className="mono r">{baht(s.revenue)}</span>
                     <span className={`mono r ${tone(s.profit)}`}>{baht(s.profit)}</span>
-                    <span className="r"><button className="btn ghost" style={{ color: 'var(--bad)' }} onClick={() => remove(s)} aria-label={`Delete ${s.product_name} sale`}>Delete</button></span>
+                    <span className="r"><button className="btn ghost" style={{ color: 'var(--bad)' }} onClick={() => remove(s)} aria-label={t('sold.deleteSale', { name: s.product_name })}>{t('common.delete')}</button></span>
                   </div>
                 ))}
               </div>
@@ -198,8 +201,8 @@ export default function SoldLog() {
         </div>
       </section>
       <TrashList
-        title="Deleted sales"
-        items={deleted.map((d) => ({ id: d.id, title: `${d.qty} × ${d.product_name}`, detail: `${d.shop_name} · ${dayLabel(d.sold_on)} · profit ${baht(d.profit)}` }))}
+        title={t('sold.deletedTitle')}
+        items={deleted.map((d) => ({ id: d.id, title: `${d.qty} × ${d.product_name}`, detail: t('sold.deletedDetail', { shop: d.shop_name, date: dayLabel(d.sold_on), profit: baht(d.profit) }) }))}
         onRestore={restoreSale}
       />
     </>

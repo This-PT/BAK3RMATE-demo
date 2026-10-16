@@ -1,35 +1,29 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, speak, stopSpeaking } from '../api.js';
-import { baht, bahtShort, pct } from '../format.js';
+import { baht, bahtShort, pct, unitName } from '../format.js';
+import { useI18n } from '../i18n.jsx';
+import { useChat } from '../chat.jsx';
+import { dateLocale, translateError } from '../i18n-core.js';
 
-const GREETING =
-  'Hi! Tell me about a price change or new stock, or ask whether a product still makes money.';
-
-const SourceLabel = { chat: 'From chat', receipt: 'From receipt photo', manual: 'Manual update', undo: 'Undone' };
-
-function when(iso) {
-  const d = new Date(iso);
-  const now = new Date();
-  if (d.toDateString() === now.toDateString()) return 'today';
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-}
+const SOURCES = ['chat', 'receipt', 'manual', 'undo'];
 
 function Impact({ msg, onUndo }) {
+  const { t } = useI18n();
   const multiProduct = new Set(msg.impacts.map((i) => i.product)).size > 1;
   return (
     <div className="impact">
-      <h3>Impact</h3>
+      <h3>{t('assistant.impact')}</h3>
       {msg.impacts.map((i, k) => (
         <div className="impact-row" key={k}>
           {i.kind === 'ingredient' ? (
             <>
-              <span>{i.product} · ingredient cost</span>
+              <span>{t('assistant.impactIngredient', { product: i.product })}</span>
               <span className="mono">{baht(i.before)} → <strong>{baht(i.after)}</strong></span>
             </>
           ) : (
             <>
-              <span>{i.shop}{multiProduct ? ` · ${i.product}` : ''} · true margin</span>
+              <span>{t('assistant.impactMargin', { shop: `${i.shop}${multiProduct ? ` · ${i.product}` : ''}` })}</span>
               <span className="mono">
                 {pct(i.before)} → <strong className={i.after < i.before ? 'bad' : 'good'}>{pct(i.after)}</strong>
               </span>
@@ -38,21 +32,26 @@ function Impact({ msg, onUndo }) {
         </div>
       ))}
       <div className="impact-actions">
-        <Link className="btn dark" to="/costs">Open cost breakdown</Link>
+        <Link className="btn dark" to="/costs">{t('assistant.openCosts')}</Link>
         {msg.changeId && !msg.undone && (
-          <button className="btn" onClick={() => onUndo(msg)}>Undo change</button>
+          <button className="btn" onClick={() => onUndo(msg)}>{t('assistant.undo')}</button>
         )}
-        {msg.undone && <span className="muted" style={{ alignSelf: 'center', fontSize: 14 }}>Change undone</span>}
+        {msg.undone && <span className="muted" style={{ alignSelf: 'center', fontSize: 14 }}>{t('assistant.undone')}</span>}
       </div>
     </div>
   );
 }
 
 export default function Assistant() {
-  const [messages, setMessages] = useState([{ role: 'assistant', content: GREETING }]);
-  const [input, setInput] = useState('');
+  const { t } = useI18n();
+  // the conversation, the half-typed message and the voice switch live above this page, so changing page keeps them
+  const { messages, setMessages, input, setInput, voice, setVoice } = useChat();
+  const when = (iso) => {
+    const d = new Date(iso);
+    if (d.toDateString() === new Date().toDateString()) return t('assistant.today');
+    return d.toLocaleDateString(dateLocale(), { month: 'short', day: 'numeric' });
+  };
   const [busy, setBusy] = useState(false);
-  const [voice, setVoice] = useState(true);
   const [playing, setPlaying] = useState(null);
   const [changes, setChanges] = useState({ changes: [], products_affected: 0 });
   const [error, setError] = useState('');
@@ -112,16 +111,16 @@ export default function Assistant() {
         recorder.current = rec;
         rec.ondataavailable = (e) => chunks.push(e.data);
         rec.onstop = async () => {
-          stream.getTracks().forEach((t) => t.stop());
+          stream.getTracks().forEach((track) => track.stop());
           setMic('transcribing');
           try {
             const body = new FormData();
             body.append('audio', new Blob(chunks, { type: rec.mimeType }), 'speech');
             const res = await fetch('/api/stt', { method: 'POST', body });
-            if (!res.ok) throw new Error((await res.json()).error || 'Could not transcribe');
+            if (!res.ok) throw new Error(translateError((await res.json()).error || 'Could not transcribe'));
             const { text } = await res.json();
             if (text?.trim()) await sendText(text.trim());
-            else setError("I didn't catch that. Tap the mic and try again.");
+            else setError(t('assistant.errNoCatch'));
           } catch (err) {
             setError(err.message);
           } finally {
@@ -131,13 +130,13 @@ export default function Assistant() {
         rec.start();
         setMic('listening');
       } catch {
-        setError('Microphone blocked. Allow microphone access in your browser and try again.');
+        setError(t('assistant.errMic'));
       }
       return;
     }
 
     if (!SR) {
-      setError("Voice input isn't supported in this browser. Use Chrome, or add an OpenAI key.");
+      setError(t('assistant.errUnsupported'));
       return;
     }
     const r = new SR();
@@ -152,8 +151,8 @@ export default function Assistant() {
       setInput(finalText + interim);
     };
     r.onerror = (e) => {
-      if (e.error === 'not-allowed') setError('Microphone blocked. Allow microphone access in your browser and try again.');
-      else if (e.error !== 'no-speech' && e.error !== 'aborted') setError(`Voice input failed (${e.error}).`);
+      if (e.error === 'not-allowed') setError(t('assistant.errMic'));
+      else if (e.error !== 'no-speech' && e.error !== 'aborted') setError(t('assistant.errVoice', { code: e.error }));
     };
     r.onend = () => {
       setMic('idle');
@@ -211,17 +210,17 @@ export default function Assistant() {
     <>
       <header className="page-head">
         <div>
-          <h1>AI Assistant</h1>
-          <p>Tell me what changed, in Thai or English. I update your costs and prices.</p>
+          <h1>{t('nav.assistant')}</h1>
+          <p>{t('assistant.subtitle')}</p>
         </div>
         <button className="voice-toggle" aria-pressed={voice} onClick={() => { setVoice(!voice); stopSpeaking(); setPlaying(null); }}>
           <span className={`track ${voice ? 'on' : ''}`} aria-hidden="true"><span className="knob" /></span>
-          <span>Voice replies</span><span className="muted">· ElevenLabs</span>
+          <span>{t('assistant.voiceReplies')}</span><span className="muted">· ElevenLabs</span>
         </button>
       </header>
 
       <div className="assistant">
-        <section className="card chat" aria-label="Conversation">
+        <section className="card chat" aria-label={t('assistant.conversation')}>
           <div className="thread" aria-live="polite">
             {messages.map((m, i) =>
               m.role === 'user' ? (
@@ -232,14 +231,14 @@ export default function Assistant() {
                 <div className="msg" key={i}>
                   <div className="avatar" aria-hidden="true">AI</div>
                   <div className="msg-col">
-                    <div className="bubble">{m.content}</div>
+                    <div className="bubble">{m.greeting ? t('assistant.greeting') : m.content}</div>
                     {m.impacts?.length > 0 && <Impact msg={m} onUndo={undo} />}
                     {i > 0 && (
                       <button className="btn ghost" style={{ alignSelf: 'flex-start' }} onClick={() => play(i, m.content)}>
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                           <path d="M11 5L6 9H3v6h3l5 4z" /><path d="M15.5 8.5a5 5 0 0 1 0 7" /><path d="M18.5 5.5a9 9 0 0 1 0 13" />
                         </svg>
-                        {playing === i ? 'Playing… tap to stop' : 'Listen'}
+                        {playing === i ? t('assistant.playing') : t('assistant.listen')}
                       </button>
                     )}
                   </div>
@@ -247,7 +246,7 @@ export default function Assistant() {
               ),
             )}
             {busy && (
-              <div className="msg"><div className="avatar" aria-hidden="true">AI</div><div className="bubble muted">Thinking…</div></div>
+              <div className="msg"><div className="avatar" aria-hidden="true">AI</div><div className="bubble muted">{t('assistant.thinking')}</div></div>
             )}
             <div ref={end} />
           </div>
@@ -259,8 +258,8 @@ export default function Assistant() {
               onClick={toggleMic}
               disabled={mic === 'transcribing'}
               aria-pressed={mic === 'listening'}
-              aria-label={mic === 'listening' ? 'Stop and send' : 'Tap to talk'}
-              title={mic === 'listening' ? 'Tap to stop and send' : 'Tap to talk'}
+              aria-label={mic === 'listening' ? t('assistant.micStop') : t('assistant.micTalk')}
+              title={mic === 'listening' ? t('assistant.micStopTitle') : t('assistant.micTalk')}
             >
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0" /><path d="M12 18v3" />
@@ -268,7 +267,7 @@ export default function Assistant() {
             </button>
             {!caps.stt && SR && (
               <label className="sr-only-label">
-                <span className="sr-only">Speech language</span>
+                <span className="sr-only">{t('assistant.speechLang')}</span>
                 <select className="input" style={{ minHeight: 44, padding: '0 8px' }} value={lang} onChange={(e) => setLang(e.target.value)} disabled={mic !== 'idle'}>
                   <option value="th-TH">ไทย</option>
                   <option value="en-US">EN</option>
@@ -276,22 +275,22 @@ export default function Assistant() {
               </label>
             )}
             <label style={{ flex: '1 1 240px', display: 'flex' }}>
-              <span className="sr-only">Message</span>
+              <span className="sr-only">{t('assistant.message')}</span>
               <input
                 className="input"
                 style={{ flex: 1 }}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder={mic === 'listening' ? 'Listening… tap the mic to send' : mic === 'transcribing' ? 'Transcribing…' : 'Type, or tap the mic and talk…'}
+                placeholder={mic === 'listening' ? t('assistant.phListening') : mic === 'transcribing' ? t('assistant.phTranscribing') : t('assistant.phDefault')}
               />
             </label>
-            <button className="btn primary" type="submit" disabled={busy || !input.trim()}>Send</button>
+            <button className="btn primary" type="submit" disabled={busy || !input.trim()}>{t('assistant.send')}</button>
           </form>
         </section>
 
-        <aside className="card aside-card" aria-label="Price changes this week">
-          <h2>Price changes this week</h2>
-          {changes.changes.length === 0 && <span className="muted" style={{ fontSize: 14 }}>No price changes yet.</span>}
+        <aside className="card aside-card" aria-label={t('assistant.changesTitle')}>
+          <h2>{t('assistant.changesTitle')}</h2>
+          {changes.changes.length === 0 && <span className="muted" style={{ fontSize: 14 }}>{t('assistant.noChanges')}</span>}
           {changes.changes.map((c) => (
             <div className="change" key={c.id}>
               <div className="change-top">
@@ -300,13 +299,13 @@ export default function Assistant() {
                   {c.change_pct > 0 ? '+' : c.change_pct < 0 ? '−' : ''}{Math.abs(c.change_pct).toFixed(0)}%
                 </span>
               </div>
-              <span className="mono" style={{ fontSize: 14 }}>{bahtShort(c.old_cost)} → {bahtShort(c.new_cost)} / {c.unit}</span>
-              <span className="muted" style={{ fontSize: 13 }}>{SourceLabel[c.source] || c.source} · {when(c.created_at)}</span>
+              <span className="mono" style={{ fontSize: 14 }}>{bahtShort(c.old_cost)} → {bahtShort(c.new_cost)} / {unitName(c.unit)}</span>
+              <span className="muted" style={{ fontSize: 13 }}>{SOURCES.includes(c.source) ? t(`source.${c.source}`) : c.source} · {when(c.created_at)}</span>
             </div>
           ))}
           {changes.products_affected > 0 && (
             <Link to="/shops" style={{ fontSize: 14, fontWeight: 600 }}>
-              {changes.products_affected} products affected · review in Shops
+              {t('assistant.affected', { n: changes.products_affected })}
             </Link>
           )}
         </aside>

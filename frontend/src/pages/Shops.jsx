@@ -7,16 +7,17 @@ import RealityCheck from '../components/RealityCheck.jsx';
 import AddShopModal from '../components/AddShopModal.jsx';
 import TrashList from '../components/TrashList.jsx';
 import { shortDate } from '../dates.js';
+import { useI18n } from '../i18n.jsx';
 
 const GRID = { gridTemplateColumns: 'minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) minmax(0,0.8fr) minmax(0,1.2fr) 170px' };
-// [field, label, unit, hint]
+// [field, label key, unit, empty-means-none]
 const FEES = [
-  ['commission_pct', 'Commission', '%'],
-  ['transaction_pct', 'Transaction fee', '%'],
-  ['extra_pct', 'Growth / service fee', '%'],
-  ['extra_cap_per_item', 'Cap per item', '฿', 'empty = no cap'],
-  ['fixed_fee_per_order', 'Platform fee per order', '฿'],
-  ['shipping_pct', 'Free-shipping program', '%'],
+  ['commission_pct', 'fee.commission', '%'],
+  ['transaction_pct', 'fee.transaction', '%'],
+  ['extra_pct', 'fee.extra', '%'],
+  ['extra_cap_per_item', 'fee.cap', '฿', true],
+  ['fixed_fee_per_order', 'fee.fixed', '฿'],
+  ['shipping_pct', 'fee.shipping', '%'],
 ];
 const EMPTY_FEES = { commission_pct: '', transaction_pct: '', extra_pct: '', extra_cap_per_item: '', fixed_fee_per_order: '', shipping_pct: '' };
 const feesOf = (s) => Object.fromEntries(FEES.map(([k]) => [k, s[k] === null || s[k] === undefined ? '' : String(s[k])]));
@@ -24,6 +25,7 @@ const tone = (s) => (s === 'losing' ? 'bad' : s === 'thin' ? 'warn' : 'good');
 const valid = (v) => v !== '' && Number.isFinite(Number(v)) && Number(v) >= 0;
 
 export default function Shops() {
+  const { t } = useI18n();
   const [shops, setShops] = useState([]);
   const [shopId, setShopId] = useState(null);
   const [fees, setFees] = useState(EMPTY_FEES);
@@ -140,14 +142,14 @@ export default function Shops() {
   };
 
   const removeProduct = async (l) => {
-    if (!window.confirm(`Take "${l.product_name}" out of ${l.shop_name}?\n\nIt moves to "Removed from ${l.shop_name}" below with its price, so you can put it back.`)) return;
+    if (!window.confirm(t('shops.confirmRemove', { product: l.product_name, shop: l.shop_name }))) return;
     setError('');
     try {
       await api.del(`/api/listings/${l.id}`);
       setListings((ls) => ls.filter((x) => x.id !== l.id));
       patchShopLocal(shopId, { product_count: listings.length - 1 });
       if (open === l.id) setOpen(null);
-      setNotice(`"${l.product_name}" was taken out of ${l.shop_name}. You can put it back below.`);
+      setNotice(t('shops.removedNotice', { product: l.product_name, shop: l.shop_name }));
       loadRemoved(shopId);
     } catch (err) {
       setError(err.message);
@@ -161,7 +163,7 @@ export default function Shops() {
       const list = await api.get('/api/shops');
       setShops(list);
       setShopId(it.id);
-      setNotice(`"${it.title}" is back with its products and prices.`);
+      setNotice(t('shops.shopRestored', { name: it.title }));
       loadDeletedShops();
     } catch (e) {
       setError(e.message);
@@ -174,7 +176,7 @@ export default function Shops() {
       await api.post(`/api/listings/${it.id}/restore`);
       setShops(await api.get('/api/shops'));
       await Promise.all([loadListings(shopId), loadRemoved(shopId)]);
-      setNotice(`"${it.title}" is back in the shop at its old price.`);
+      setNotice(t('shops.productRestored', { name: it.title }));
     } catch (e) {
       setError(e.message);
     }
@@ -182,14 +184,14 @@ export default function Shops() {
 
   const removeShop = async () => {
     const shop = shops.find((s) => s.id === shopId);
-    if (!shop || !window.confirm(`Delete "${shop.name}"?\n\nIt is hidden with its ${shop.product_count} products and their prices. You can restore it from "Deleted shops".`)) return;
+    if (!shop || !window.confirm(t('shops.confirmDeleteShop', { name: shop.name, n: shop.product_count }))) return;
     setError('');
     try {
       await api.del(`/api/shops/${shopId}`);
       const rest = shops.filter((s) => s.id !== shopId);
       setShops(rest);
       setShopId(rest[0]?.id ?? null);
-      setNotice(`"${shop.name}" was moved to Deleted shops. You can restore it below.`);
+      setNotice(t('shops.shopDeletedNotice', { name: shop.name }));
       loadDeletedShops();
     } catch (e) {
       setError(e.message);
@@ -223,20 +225,20 @@ export default function Shops() {
     <>
       <header className="page-head">
         <div>
-          <h1>Shops</h1>
-          <p>Each shop charges you differently. See what every product really earns after fees, ads and wear.</p>
+          <h1>{t('nav.shops')}</h1>
+          <p>{t('shops.subtitle')}</p>
         </div>
       </header>
       {error && <div className="error">{error}</div>}
       {notice && <div className="notice" role="status">{notice}</div>}
 
-      <div className="pills" role="group" aria-label="Shop">
+      <div className="pills" role="group" aria-label={t('common.shop')}>
         {shops.map((s) => (
           <button key={s.id} className="pill" aria-pressed={s.id === shopId} onClick={() => setShopId(s.id)}>
-            {s.name} · {s.product_count} products
+            {s.name} · {t('count.products', { n: s.product_count })}
           </button>
         ))}
-        <button className="pill add" onClick={() => setShowAddShop(true)}>+ Add shop</button>
+        <button className="pill add" onClick={() => setShowAddShop(true)}>{t('shops.addShopPlus')}</button>
       </div>
 
       {showAddShop && (
@@ -244,22 +246,22 @@ export default function Shops() {
       )}
 
       <TrashList
-        title="Deleted shops"
-        items={deletedShops.map((d) => ({ id: d.id, title: d.name, detail: `${d.product_count} ${d.product_count === 1 ? 'product' : 'products'} · deleted ${shortDate(d.deleted_at)}` }))}
+        title={t('shops.deletedTitle')}
+        items={deletedShops.map((d) => ({ id: d.id, title: d.name, detail: t('shops.deletedDetail', { n: d.product_count, date: shortDate(d.deleted_at) }) }))}
         onRestore={restoreShop}
       />
 
       {loaded && shops.length === 0 && (
         <div className="card card-pad">
-          <p style={{ margin: '0 0 12px' }}>This store has no shops yet. A shop is somewhere you sell, like Shopee, LINE or a market stall. Each one has its own fees.</p>
-          <button className="btn primary" onClick={() => setShowAddShop(true)}>+ Add shop</button>
+          <p style={{ margin: '0 0 12px' }}>{t('shops.empty')}</p>
+          <button className="btn primary" onClick={() => setShowAddShop(true)}>{t('shops.addShopPlus')}</button>
         </div>
       )}
 
       {shops.length > 0 && (<>
-      <section className="card fees" aria-label="Shop fees">
+      <section className="card fees" aria-label={t('shops.feesAria')}>
         <div className="intro">
-          <label className="field" style={{ marginBottom: 12 }}>Shop name
+          <label className="field" style={{ marginBottom: 12 }}>{t('shops.shopName')}
             <input
               ref={nameInput}
               className="input"
@@ -270,66 +272,66 @@ export default function Shops() {
               onBlur={() => !name.trim() && setName(shops.find((s) => s.id === shopId)?.name ?? '')}
             />
           </label>
-          <h2>How this shop charges you</h2>
-          <p>Rates come from your seller center and differ by category and campaign. They apply to every product in this shop. Change a rate and every product below recalculates.</p>
+          <h2>{t('shops.howCharges')}</h2>
+          <p>{t('shops.ratesNote')}</p>
         </div>
         <div className="fee-fields">
           {FEES.map(([k, label, unit, hint]) => (
-            <label className="field" key={k}>{label}
+            <label className="field" key={k}>{t(label)}
               <span className="with-unit">
                 {unit === '฿' && '฿'}
-                <input className="input sm" inputMode="decimal" value={fees[k]} placeholder={hint ? 'none' : undefined} onChange={(e) => setFee(k, e.target.value)} />
+                <input className="input sm" inputMode="decimal" value={fees[k]} placeholder={hint ? t('shops.noCap') : undefined} onChange={(e) => setFee(k, e.target.value)} />
                 {unit === '%' && '%'}
               </span>
             </label>
           ))}
-          <div className="field">Total taken per sale
+          <div className="field">{t('shops.totalTaken')}
             <span className="mono" style={{ fontSize: 22, fontWeight: 600, color: 'var(--ink)' }}>
               {pctTotal}%{fixedFee > 0 ? ` + ${baht(fixedFee)}` : ''}
             </span>
           </div>
         </div>
         {shops.length > 1 && (
-          <button className="btn danger" style={{ marginLeft: 'auto' }} onClick={removeShop}>Delete shop</button>
+          <button className="btn danger" style={{ marginLeft: 'auto' }} onClick={removeShop}>{t('shops.deleteShop')}</button>
         )}
       </section>
 
-      <section className="card" aria-label="Products">
+      <section className="card" aria-label={t('shops.productsAria')}>
         <div className="card-pad" style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>Products in {name || 'this shop'}</h2>
-          <button className="btn primary" onClick={openAdd}>{adding ? 'Cancel' : '+ Add product'}</button>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>{t('shops.productsIn', { name: name || t('shops.thisShop') })}</h2>
+          <button className="btn primary" onClick={openAdd}>{adding ? t('common.cancel') : t('shops.addProductPlus')}</button>
         </div>
         {adding && (
           available.length === 0 ? (
-            <p className="muted" style={{ margin: '0 24px 16px', fontSize: 14 }}>Every product is already in this shop.</p>
+            <p className="muted" style={{ margin: '0 24px 16px', fontSize: 14 }}>{t('shops.allIn')}</p>
           ) : (
             <form className="form-row" onSubmit={addProduct}>
-              <label className="field" style={{ flex: '1 1 220px' }}>Product
+              <label className="field" style={{ flex: '1 1 220px' }}>{t('common.product')}
                 <select className="input" value={form.product_id} onChange={(e) => pickProduct(e.target.value)}>
                   {available.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
               </label>
-              <label className="field">Selling price (฿)
+              <label className="field">{t('shops.sellingPriceBaht')}
                 <input className="input" style={{ width: 130 }} required inputMode="decimal" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
               </label>
-              <label className="field">Ads per order (฿)
+              <label className="field">{t('shops.adsBaht')}
                 <input className="input" style={{ width: 130 }} inputMode="decimal" value={form.ads} onChange={(e) => setForm({ ...form, ads: e.target.value })} />
               </label>
-              <label className="field">Wear per order (฿)
+              <label className="field">{t('shops.wearBaht')}
                 <input className="input" style={{ width: 130 }} inputMode="decimal" value={form.wear} onChange={(e) => setForm({ ...form, wear: e.target.value })} />
               </label>
-              <button className="btn primary" type="submit">Add to shop</button>
+              <button className="btn primary" type="submit">{t('shops.addToShop')}</button>
             </form>
           )
         )}
         {listings.length === 0 && !adding && (
-          <p className="muted" style={{ margin: '0 24px 20px', fontSize: 14 }}>No products in this shop yet. Use "+ Add product".</p>
+          <p className="muted" style={{ margin: '0 24px 20px', fontSize: 14 }}>{t('shops.noProducts')}</p>
         )}
         <div className="scroll-x">
           <div style={{ minWidth: 860 }}>
             <div className="thead" style={GRID}>
-              <span>Product</span><span className="r">Selling price</span><span className="r">True cost</span>
-              <span className="r">Profit / order</span><span className="r">Margin</span><span>Status</span><span />
+              <span>{t('common.product')}</span><span className="r">{t('shops.colPrice')}</span><span className="r">{t('common.trueCost')}</span>
+              <span className="r">{t('shops.colProfit')}</span><span className="r">{t('common.margin')}</span><span>{t('common.status')}</span><span />
             </div>
             {listings.map((l) => {
               const isOpen = open === l.id;
@@ -346,7 +348,7 @@ export default function Shops() {
                           inputMode="decimal"
                           value={draft(l, 'price')}
                           onChange={(e) => setField(l, 'price', e.target.value)}
-                          aria-label={`Selling price of ${l.product_name}`}
+                          aria-label={t('shops.priceOf', { name: l.product_name })}
                         />
                       </span>
                     </span>
@@ -356,9 +358,9 @@ export default function Shops() {
                     <span><Badge status={l.status} /></span>
                     <span className="r">
                       <button className="btn ghost" aria-expanded={isOpen} onClick={() => setOpen(isOpen ? null : l.id)}>
-                        {isOpen ? 'Hide' : 'Details'}
+                        {isOpen ? t('common.hide') : t('common.details')}
                       </button>
-                      <button className="btn ghost" style={{ color: 'var(--bad)' }} onClick={() => removeProduct(l)} aria-label={`Remove ${l.product_name} from this shop`}>Remove</button>
+                      <button className="btn ghost" style={{ color: 'var(--bad)' }} onClick={() => removeProduct(l)} aria-label={t('shops.removeFromShop', { name: l.product_name })}>{t('common.remove')}</button>
                     </span>
                   </div>
                   {isOpen && (
@@ -366,38 +368,38 @@ export default function Shops() {
                       <RealityCheck l={l} />
                       <div>
                         <div className="factor">
-                          <span>Ingredients <Link to="/costs">Edit in Cost Breakdown</Link></span>
+                          <span>{t('shops.ingredients')} <Link to="/costs">{t('shops.editInCosts')}</Link></span>
                           <span className="mono">{baht(l.ingredientCost)}</span>
                         </div>
-                        <div className="factor"><span>Commission ({fees.commission_pct}%)</span><span className="mono">{baht(l.commission)}</span></div>
-                        <div className="factor"><span>Transaction fee ({fees.transaction_pct}%)</span><span className="mono">{baht(l.transaction)}</span></div>
+                        <div className="factor"><span>{t('fee.commission')} ({fees.commission_pct}%)</span><span className="mono">{baht(l.commission)}</span></div>
+                        <div className="factor"><span>{t('fee.transaction')} ({fees.transaction_pct}%)</span><span className="mono">{baht(l.transaction)}</span></div>
                         {l.extra > 0 || Number(fees.extra_pct) > 0 ? (
                           <div className="factor">
-                            <span>Growth / service fee ({fees.extra_pct}%{fees.extra_cap_per_item !== '' ? `, max ${baht(Number(fees.extra_cap_per_item))}` : ''})</span>
+                            <span>{t('fee.extra')} ({fees.extra_pct}%{fees.extra_cap_per_item !== '' ? `, ${t('shops.max', { amount: baht(Number(fees.extra_cap_per_item)) })}` : ''})</span>
                             <span className="mono">{baht(l.extra)}</span>
                           </div>
                         ) : null}
                         {Number(fees.shipping_pct) > 0 && (
-                          <div className="factor"><span>Free-shipping program ({fees.shipping_pct}%)</span><span className="mono">{baht(l.shipping)}</span></div>
+                          <div className="factor"><span>{t('fee.shipping')} ({fees.shipping_pct}%)</span><span className="mono">{baht(l.shipping)}</span></div>
                         )}
                         {l.fixedFee > 0 && (
-                          <div className="factor"><span>Platform fee per order</span><span className="mono">{baht(l.fixedFee)}</span></div>
+                          <div className="factor"><span>{t('fee.fixed')}</span><span className="mono">{baht(l.fixedFee)}</span></div>
                         )}
                         <div className="factor">
-                          <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>Ads per order
+                          <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>{t('shops.adsPerOrder')}
                             <span className="with-unit">฿<input className="input sm" inputMode="decimal" value={draft(l, 'ads')} onChange={(e) => setField(l, 'ads', e.target.value)} /></span>
                           </label>
                           <span className="mono">{baht(l.ads)}</span>
                         </div>
                         <div className="factor">
-                          <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>Gas and equipment wear
+                          <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>{t('shops.wearLabel')}
                             <span className="with-unit">฿<input className="input sm" inputMode="decimal" value={draft(l, 'wear')} onChange={(e) => setField(l, 'wear', e.target.value)} /></span>
                           </label>
                           <span className="mono">{baht(l.wear)}</span>
                         </div>
-                        <div className="factor total"><span>True cost</span><span className="mono">{baht(l.trueCost)}</span></div>
-                        <div className="factor total"><span>Selling price</span><span className="mono">{baht(l.price)}</span></div>
-                        <div className="factor total"><span>Profit per order</span><span className={`mono ${tone(l.status)}`}>{baht(l.profit)}</span></div>
+                        <div className="factor total"><span>{t('common.trueCost')}</span><span className="mono">{baht(l.trueCost)}</span></div>
+                        <div className="factor total"><span>{t('shops.sellingPrice')}</span><span className="mono">{baht(l.price)}</span></div>
+                        <div className="factor total"><span>{t('shops.profitPerOrder')}</span><span className={`mono ${tone(l.status)}`}>{baht(l.profit)}</span></div>
                       </div>
                     </div>
                   )}
@@ -408,8 +410,8 @@ export default function Shops() {
         </div>
       </section>
       <TrashList
-        title={`Removed from ${name || 'this shop'}`}
-        items={removed.map((r) => ({ id: r.id, title: r.product_name, detail: `Was ${baht(r.price)} · removed ${shortDate(r.deleted_at)}` }))}
+        title={t('shops.removedFrom', { name: name || t('shops.thisShop') })}
+        items={removed.map((r) => ({ id: r.id, title: r.product_name, detail: t('shops.removedDetail', { price: baht(r.price), date: shortDate(r.deleted_at) }) }))}
         onRestore={restoreListing}
       />
       </>)}

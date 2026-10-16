@@ -1,26 +1,28 @@
 import { baht, pct } from '../format.js';
+import { useI18n } from '../i18n.jsx';
 
 const tone = (s) => (s === 'losing' ? 'bad' : s === 'thin' ? 'warn' : 'good');
 
 export default function RealityCheck({ l }) {
+  const { t } = useI18n();
   return (
     <div>
-      <span className="reality-title">Reality check</span>
+      <span className="reality-title">{t('reality.title')}</span>
       <div className="reality">
         <div>
-          <small>You think you make</small>
+          <small>{t('reality.youThink')}</small>
           <span className="pct">{pct(l.thinkMargin)}</span>
-          <small>{baht(l.thinkProfit)} / order · price minus ingredients</small>
+          <small>{t('reality.thinkNote', { profit: baht(l.thinkProfit) })}</small>
         </div>
         <div>
-          <small>You actually make</small>
+          <small>{t('reality.youActually')}</small>
           <span className={`pct ${tone(l.status)}`}>{pct(l.margin)}</span>
-          <small>{baht(l.profit)} / order · after every cost</small>
+          <small>{t('reality.actualNote', { profit: baht(l.profit) })}</small>
         </div>
       </div>
       <div className="breakeven">
-        <span>Break-even selling price</span>
-        <strong className="mono">{l.breakEven === null ? 'n/a' : baht(l.breakEven)}</strong>
+        <span>{t('reality.breakEven')}</span>
+        <strong className="mono">{l.breakEven === null ? t('common.na') : baht(l.breakEven)}</strong>
       </div>
     </div>
   );

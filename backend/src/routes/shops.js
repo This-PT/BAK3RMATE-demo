@@ -243,8 +243,10 @@ shopsRouter.get('/dashboard', async (req, res) => {
       store_name: req.storeName,
       losing: losing.length,
       losing_names: losing.map((l) => `${l.product_name} on ${l.shop_name.replace(/ shop$/, '')}`),
+      losing_items: losing.map((l) => ({ product: l.product_name, shop: l.shop_name.replace(/ shop$/, '') })), // the page words the sentence itself, in its language
       thin: thin.length,
       thin_names: thin.map((l) => `${l.product_name} on ${l.shop_name.replace(/ shop$/, '')}`),
+      thin_items: thin.map((l) => ({ product: l.product_name, shop: l.shop_name.replace(/ shop$/, '') })),
       stock_value: supplyKpis(supplies, changes).stock_value,
     },
     listings,

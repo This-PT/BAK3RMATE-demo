@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api.js';
-import { baht, bahtShort } from '../format.js';
+import { baht, bahtShort, unitName, unitCount } from '../format.js';
+import { useI18n } from '../i18n.jsx';
 import KpiCard from '../components/KpiCard.jsx';
 import { useStores } from '../store.jsx';
 import TrashList from '../components/TrashList.jsx';
@@ -9,6 +10,7 @@ import { shortDate } from '../dates.js';
 const GRID = { gridTemplateColumns: 'minmax(0,2fr) minmax(0,1fr) minmax(0,1.2fr) minmax(0,1.2fr) minmax(0,1fr) minmax(0,1fr) 90px' };
 
 export default function Supply() {
+  const { t } = useI18n();
   const { stores, current } = useStores();
   const others = stores.filter((s) => s.id !== current.id);
   const [importing, setImporting] = useState(false);
@@ -64,11 +66,11 @@ export default function Supply() {
   };
 
   const removeSupply = async (s) => {
-    if (!window.confirm(`Delete "${s.name}"?\n\nIt moves to "Deleted supplies" below, so you can restore it later.`)) return;
+    if (!window.confirm(t('supply.confirmDelete', { name: s.name }))) return;
     setError('');
     try {
       await api.del(`/api/supplies/${s.id}`);
-      setNotice(`"${s.name}" was moved to Deleted supplies. You can restore it below.`);
+      setNotice(t('supply.movedToDeleted', { name: s.name }));
       load();
     } catch (err) {
       setError(err.message);
@@ -79,7 +81,7 @@ export default function Supply() {
     setError('');
     try {
       await api.post(`/api/supplies/${it.id}/restore`);
-      setNotice(`"${it.title}" is back.`);
+      setNotice(t('supply.restored', { name: it.title }));
       load();
     } catch (err) {
       setError(err.message);
@@ -115,7 +117,13 @@ export default function Supply() {
     try {
       const r = await api.post('/api/supplies/import', { from_store: Number(fromId), supply_ids: [...picked] });
       const from = others.find((s) => String(s.id) === fromId)?.name;
-      setNotice(`Copied ${r.added.length} ${r.added.length === 1 ? 'ingredient' : 'ingredients'} from ${from}: ${r.added.map((a) => a.name).join(', ')}.${r.skipped.length ? ` Skipped ${r.skipped.join(', ')} (already here).` : ''} Stock starts at 0.`);
+      setNotice(
+        [
+          t('supply.importDone', { n: r.added.length, from, names: r.added.map((a) => a.name).join(', ') }),
+          r.skipped.length ? t('common.skipped', { names: r.skipped.join(', ') }) : '',
+          t('supply.stockStarts'),
+        ].filter(Boolean).join(' '),
+      );
       setImporting(false);
       setPicked(new Set());
       load();
@@ -134,40 +142,40 @@ export default function Supply() {
     <>
       <header className="page-head">
         <div>
-          <h1>Supply</h1>
-          <p>Everything you have in stock. Unit cost is your latest purchase price, and every product that uses an item updates automatically.</p>
+          <h1>{t('nav.supply')}</h1>
+          <p>{t('supply.subtitle')}</p>
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {others.length > 0 && <button className="btn" onClick={openImport}>{importing ? 'Cancel import' : 'Import from another store'}</button>}
-          <button className="btn" onClick={() => setCreating(!creating)}>+ New supply</button>
-          <button className="btn primary" onClick={() => setAdding(!adding)} disabled={supplies.length === 0}>+ Add purchase</button>
+          {others.length > 0 && <button className="btn" onClick={openImport}>{importing ? t('common.cancelImport') : t('common.importFromStore')}</button>}
+          <button className="btn" onClick={() => setCreating(!creating)}>{t('supply.newPlus')}</button>
+          <button className="btn primary" onClick={() => setAdding(!adding)} disabled={supplies.length === 0}>{t('supply.addPurchasePlus')}</button>
         </div>
       </header>
       {error && <div className="error">{error}</div>}
       {notice && <div className="notice" role="status">{notice}</div>}
 
       <div className="kpis">
-        <KpiCard label="Items in stock" value={kpis.items} />
-        <KpiCard label="Stock value" value={bahtShort(kpis.stock_value)} />
-        <KpiCard label="Running low" value={kpis.low_count} tone="warn" />
-        <KpiCard label="Prices up this week" value={kpis.price_ups} tone="bad" />
+        <KpiCard label={t('supply.kpiItems')} value={kpis.items} />
+        <KpiCard label={t('supply.kpiValue')} value={bahtShort(kpis.stock_value)} />
+        <KpiCard label={t('supply.kpiLow')} value={kpis.low_count} tone="warn" />
+        <KpiCard label={t('supply.kpiPricesUp')} value={kpis.price_ups} tone="bad" />
       </div>
 
       {importing && (
         <form className="card card-pad" onSubmit={doImport} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'flex-end', justifyContent: 'space-between' }}>
             <div>
-              <h2 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 600 }}>Copy ingredients into {current.name}</h2>
-              <p className="muted" style={{ margin: 0, fontSize: 14 }}>Tick the ones you want. You get the same name, unit and price, with no stock. Each copy is yours to change.</p>
+              <h2 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 600 }}>{t('supply.copyInto', { name: current.name })}</h2>
+              <p className="muted" style={{ margin: 0, fontSize: 14 }}>{t('supply.copyHelp')}</p>
             </div>
-            <label className="field">Copy from
+            <label className="field">{t('common.copyFrom')}
               <select className="input" value={fromId} onChange={(e) => chooseSource(e.target.value)}>
                 {others.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </label>
           </div>
           {source.length === 0 ? (
-            <p className="muted" style={{ margin: 0 }}>That store has no ingredients yet.</p>
+            <p className="muted" style={{ margin: 0 }}>{t('supply.sourceEmpty')}</p>
           ) : (
             <>
               <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 600, fontSize: 14 }}>
@@ -178,7 +186,7 @@ export default function Supply() {
                   disabled={importable.length === 0}
                   onChange={() => setPicked(picked.size === importable.length ? new Set() : new Set(importable.map((s) => s.id)))}
                 />
-                Select all that you don't have yet ({importable.length})
+                {t('supply.selectAll', { n: importable.length })}
               </label>
               <div className="import-list">
                 {source.map((s) => {
@@ -187,8 +195,8 @@ export default function Supply() {
                     <label key={s.id} className={`import-row ${have ? 'have' : ''}`}>
                       <input className="chk" type="checkbox" disabled={have} checked={picked.has(s.id)} onChange={() => togglePick(s.id)} />
                       <span style={{ flex: 1, fontWeight: 500 }}>{s.name}</span>
-                      <span className="mono muted" style={{ fontSize: 14 }}>{bahtShort(s.unit_cost)} / {s.unit}</span>
-                      {have && <span className="badge ok">Already here</span>}
+                      <span className="mono muted" style={{ fontSize: 14 }}>{bahtShort(s.unit_cost)} / {unitName(s.unit)}</span>
+                      {have && <span className="badge ok">{t('common.alreadyHere')}</span>}
                     </label>
                   );
                 })}
@@ -196,99 +204,99 @@ export default function Supply() {
             </>
           )}
           <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn primary" type="submit" disabled={picked.size === 0}>Copy {picked.size || ''} {picked.size === 1 ? 'ingredient' : 'ingredients'}</button>
-            <button className="btn" type="button" onClick={() => setImporting(false)}>Cancel</button>
+            <button className="btn primary" type="submit" disabled={picked.size === 0}>{picked.size ? t('supply.copyButton', { n: picked.size }) : t('supply.copyButtonNone')}</button>
+            <button className="btn" type="button" onClick={() => setImporting(false)}>{t('common.cancel')}</button>
           </div>
         </form>
       )}
 
       {creating && (
         <form className="card card-pad" onSubmit={createSupply} style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' }}>
-          <label className="field" style={{ flex: '1 1 220px' }}>Name
-            <input className="input" required maxLength={60} value={fresh.name} onChange={(e) => setFresh({ ...fresh, name: e.target.value })} placeholder="e.g. Rice flour" />
+          <label className="field" style={{ flex: '1 1 220px' }}>{t('common.name')}
+            <input className="input" required maxLength={60} value={fresh.name} onChange={(e) => setFresh({ ...fresh, name: e.target.value })} placeholder={t('supply.namePlaceholder')} />
           </label>
-          <label className="field">Counted in
+          <label className="field">{t('supply.countedIn')}
             <select className="input" value={fresh.unit} onChange={(e) => setFresh({ ...fresh, unit: e.target.value })}>
-              <option value="kg">kilograms (kg)</option>
-              <option value="pc">pieces (pc)</option>
+              <option value="kg">{t('supply.unitKg')}</option>
+              <option value="pc">{t('supply.unitPc')}</option>
             </select>
           </label>
-          <label className="field">In stock ({fresh.unit})
+          <label className="field">{t('supply.inStockUnit', { unit: unitName(fresh.unit) })}
             <input className="input" style={{ width: 120 }} inputMode="decimal" value={fresh.qty} onChange={(e) => setFresh({ ...fresh, qty: e.target.value })} placeholder="0" />
           </label>
-          <label className="field">Price per {fresh.unit} (฿)
+          <label className="field">{t('supply.pricePerUnit', { unit: unitName(fresh.unit) })}
             <input className="input" style={{ width: 130 }} required inputMode="decimal" value={fresh.unit_cost} onChange={(e) => setFresh({ ...fresh, unit_cost: e.target.value })} />
           </label>
-          <label className="field">Running low at ({fresh.unit})
+          <label className="field">{t('supply.lowAtUnit', { unit: unitName(fresh.unit) })}
             <input className="input" style={{ width: 130 }} inputMode="decimal" value={fresh.low_stock_at} onChange={(e) => setFresh({ ...fresh, low_stock_at: e.target.value })} placeholder="0" />
           </label>
-          <button className="btn primary" type="submit">Save supply</button>
+          <button className="btn primary" type="submit">{t('supply.saveSupply')}</button>
         </form>
       )}
 
       {adding && (
         <form className="card card-pad" onSubmit={submit} style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' }}>
-          <label className="field" style={{ flex: '1 1 200px' }}>Item
+          <label className="field" style={{ flex: '1 1 200px' }}>{t('supply.item')}
             <select className="input" required value={form.id} onChange={(e) => {
               const s = supplies.find((x) => String(x.id) === e.target.value);
               setForm({ ...form, id: e.target.value, unit_cost: s ? String(s.unit_cost) : '' });
             }}>
-              <option value="" disabled>Choose…</option>
+              <option value="" disabled>{t('common.choose')}</option>
               {supplies.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </label>
-          <label className="field">Quantity bought {boughtItem ? `(${boughtItem.unit})` : ''}
+          <label className="field">{t('supply.quantityBought')} {boughtItem ? `(${unitName(boughtItem.unit)})` : ''}
             <input className="input" required inputMode="decimal" value={form.qty} onChange={(e) => setForm({ ...form, qty: e.target.value })} />
           </label>
-          <label className="field">Unit cost (฿)
+          <label className="field">{t('supply.unitCostBaht')}
             <input className="input" required inputMode="decimal" value={form.unit_cost} onChange={(e) => setForm({ ...form, unit_cost: e.target.value })} />
           </label>
-          <button className="btn primary" type="submit">Save purchase</button>
+          <button className="btn primary" type="submit">{t('supply.savePurchase')}</button>
         </form>
       )}
 
-      <section className="card" aria-label="Stock list">
+      <section className="card" aria-label={t('supply.stockList')}>
         <div className="card-pad" style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', justifyContent: 'space-between' }}>
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>All supplies</h2>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>{t('supply.all')}</h2>
           <label className="search" style={{ display: 'flex' }}>
-            <span className="sr-only">Search supplies</span>
-            <input className="input" style={{ flex: 1 }} type="search" placeholder="Search supplies…" value={q} onChange={(e) => setQ(e.target.value)} />
+            <span className="sr-only">{t('supply.search')}</span>
+            <input className="input" style={{ flex: 1 }} type="search" placeholder={t('supply.searchPh')} value={q} onChange={(e) => setQ(e.target.value)} />
           </label>
         </div>
         {supplies.length === 0 && (
-          <p className="muted" style={{ margin: 0, padding: '4px 24px 20px', fontSize: 15 }}>No supplies in this store yet. Use "+ New supply" to add your first ingredient or material.</p>
+          <p className="muted" style={{ margin: 0, padding: '4px 24px 20px', fontSize: 15 }}>{t('supply.empty')}</p>
         )}
         <div className="scroll-x">
           <div style={{ minWidth: 840 }}>
             <div className="thead" style={GRID}>
-              <span>Item</span><span className="r">In stock</span><span className="r">Unit cost</span>
-              <span>vs last purchase</span><span className="r">Stock value</span><span>Status</span><span />
+              <span>{t('supply.colItem')}</span><span className="r">{t('supply.colInStock')}</span><span className="r">{t('supply.colUnitCost')}</span>
+              <span>{t('supply.colVsLast')}</span><span className="r">{t('supply.colValue')}</span><span>{t('supply.colStatus')}</span><span />
             </div>
             {shown.map((s) => (
               <div className="trow" style={GRID} key={s.id}>
                 <span style={{ fontWeight: 500 }}>{s.name}</span>
-                <span className="mono r" style={{ fontSize: 14 }}>{s.qty} {s.unit === 'pc' ? 'pcs' : s.unit}</span>
-                <span className="mono r" style={{ fontSize: 14 }}>{bahtShort(s.unit_cost)} / {s.unit}</span>
+                <span className="mono r" style={{ fontSize: 14 }}>{s.qty} {unitCount(s.unit)}</span>
+                <span className="mono r" style={{ fontSize: 14 }}>{bahtShort(s.unit_cost)} / {unitName(s.unit)}</span>
                 <span>
                   {Math.abs(s.change_pct) >= 0.5
                     ? <span className={`badge ${s.change_pct > 0 ? 'up' : 'ok'}`}>{s.change_pct > 0 ? '+' : '−'}{Math.abs(s.change_pct).toFixed(0)}%</span>
-                    : <span className="muted" style={{ fontSize: 14 }}>No change</span>}
+                    : <span className="muted" style={{ fontSize: 14 }}>{t('supply.noChange')}</span>}
                 </span>
                 <span className="mono r" style={{ fontSize: 14 }}>{baht(s.stock_value)}</span>
-                <span><span className={`badge ${s.low ? 'low' : 'ok'}`}>{s.low ? 'Running low' : 'In stock'}</span></span>
-                <span className="r"><button className="btn ghost" style={{ color: 'var(--bad)' }} onClick={() => removeSupply(s)} aria-label={`Delete ${s.name}`}>Delete</button></span>
+                <span><span className={`badge ${s.low ? 'low' : 'ok'}`}>{s.low ? t('supply.low') : t('supply.ok')}</span></span>
+                <span className="r"><button className="btn ghost" style={{ color: 'var(--bad)' }} onClick={() => removeSupply(s)} aria-label={t('common.deleteNamed', { name: s.name })}>{t('common.delete')}</button></span>
               </div>
             ))}
             <div className="trow" style={{ ...GRID, borderBottom: 'none' }}>
-              <span style={{ fontWeight: 600 }}>Total</span><span /><span /><span />
+              <span style={{ fontWeight: 600 }}>{t('common.total')}</span><span /><span /><span />
               <span className="mono r" style={{ fontWeight: 600 }}>{baht(total)}</span><span /><span />
             </div>
           </div>
         </div>
       </section>
       <TrashList
-        title="Deleted supplies"
-        items={deleted.map((d) => ({ id: d.id, title: d.name, detail: `${bahtShort(d.unit_cost)} / ${d.unit} · deleted ${shortDate(d.deleted_at)}` }))}
+        title={t('supply.deletedTitle')}
+        items={deleted.map((d) => ({ id: d.id, title: d.name, detail: t('supply.deletedDetail', { price: bahtShort(d.unit_cost), unit: unitName(d.unit), date: shortDate(d.deleted_at) }) }))}
         onRestore={restoreSupply}
       />
     </>

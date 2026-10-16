@@ -5,8 +5,10 @@ import { baht } from '../format.js';
 import { api } from '../api.js';
 import TrashList from '../components/TrashList.jsx';
 import { shortDate } from '../dates.js';
+import { useI18n } from '../i18n.jsx';
 
 function NewStoreModal({ stores, currentId, onClose, onCreate }) {
+  const { t } = useI18n();
   const [name, setName] = useState('');
   const [mode, setMode] = useState('empty'); // empty | copy
   const [copyFrom, setCopyFrom] = useState(String(currentId));
@@ -38,28 +40,28 @@ function NewStoreModal({ stores, currentId, onClose, onCreate }) {
       <form className="modal" style={{ width: 'min(560px, 100%)' }} role="dialog" aria-modal="true" aria-labelledby="new-store-title" ref={dialog} onSubmit={submit}>
         <div className="modal-head">
           <div>
-            <h2 id="new-store-title">New store</h2>
-            <p>A store is one business. It has its own supplies, products, shops and sold log.</p>
+            <h2 id="new-store-title">{t('store.newTitle')}</h2>
+            <p>{t('store.newHelp')}</p>
           </div>
-          <button type="button" className="btn ghost" onClick={onClose} aria-label="Close" disabled={saving}>✕</button>
+          <button type="button" className="btn ghost" onClick={onClose} aria-label={t('common.close')} disabled={saving}>✕</button>
         </div>
         <div className="modal-body">
           {error && <div className="error">{error}</div>}
-          <label className="field">Store name
-            <input className="input" type="text" required maxLength={60} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Mali Snacks" />
+          <label className="field">{t('store.name')}
+            <input className="input" type="text" required maxLength={60} value={name} onChange={(e) => setName(e.target.value)} placeholder={t('store.namePlaceholder')} />
           </label>
           <fieldset className="preset-list" style={{ gridTemplateColumns: '1fr' }}>
-            <legend className="sr-only">Start with</legend>
+            <legend className="sr-only">{t('store.startWith')}</legend>
             <label className={`preset ${mode === 'empty' ? 'on' : ''}`}>
               <input type="radio" name="mode" checked={mode === 'empty'} onChange={() => setMode('empty')} />
-              <span className="preset-main"><strong>Start empty</strong><span className="muted preset-sum">Add your own supplies and products.</span></span>
+              <span className="preset-main"><strong>{t('store.startEmpty')}</strong><span className="muted preset-sum">{t('store.startEmptyHelp')}</span></span>
             </label>
             <label className={`preset ${mode === 'copy' ? 'on' : ''}`}>
               <input type="radio" name="mode" checked={mode === 'copy'} onChange={() => setMode('copy')} />
               <span className="preset-main">
-                <strong>Copy another store</strong>
-                <span className="muted preset-sum">Supplies, products, recipes, shops and prices. The sold log is not copied.</span>
-                <select className="input" value={copyFrom} onChange={(e) => { setCopyFrom(e.target.value); setMode('copy'); }} aria-label="Store to copy">
+                <strong>{t('store.copyAnother')}</strong>
+                <span className="muted preset-sum">{t('store.copyHelp')}</span>
+                <select className="input" value={copyFrom} onChange={(e) => { setCopyFrom(e.target.value); setMode('copy'); }} aria-label={t('store.toCopy')}>
                   {stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </span>
@@ -67,8 +69,8 @@ function NewStoreModal({ stores, currentId, onClose, onCreate }) {
           </fieldset>
         </div>
         <div className="modal-foot">
-          <button type="button" className="btn" onClick={onClose} disabled={saving}>Cancel</button>
-          <button type="submit" className="btn primary" disabled={saving || !name.trim()}>{saving ? 'Creating…' : 'Create store'}</button>
+          <button type="button" className="btn" onClick={onClose} disabled={saving}>{t('common.cancel')}</button>
+          <button type="submit" className="btn primary" disabled={saving || !name.trim()}>{saving ? t('store.creating') : t('store.create')}</button>
         </div>
       </form>
     </div>
@@ -76,6 +78,7 @@ function NewStoreModal({ stores, currentId, onClose, onCreate }) {
 }
 
 function StoreCard({ store, isCurrent, canDelete, onOpen, onRename, onDelete }) {
+  const { t } = useI18n();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(store.name);
 
@@ -98,7 +101,7 @@ function StoreCard({ store, isCurrent, canDelete, onOpen, onRename, onDelete }) 
               autoFocus
               maxLength={60}
               value={name}
-              aria-label="Store name"
+              aria-label={t('store.name')}
               onChange={(e) => setName(e.target.value)}
               onBlur={save}
               onKeyDown={(e) => {
@@ -107,27 +110,28 @@ function StoreCard({ store, isCurrent, canDelete, onOpen, onRename, onDelete }) 
               }}
             />
           ) : (
-            <h2>{store.name} {isCurrent && <span className="badge ok">Open now</span>}</h2>
+            <h2>{store.name} {isCurrent && <span className="badge ok">{t('store.openNow')}</span>}</h2>
           )}
           <span className="muted" style={{ fontSize: 13 }}>
-            {store.shop_count} {store.shop_count === 1 ? 'shop' : 'shops'} · {store.product_count} {store.product_count === 1 ? 'product' : 'products'} · {store.supply_count} supplies
+            {t('count.shops', { n: store.shop_count })} · {t('count.products', { n: store.product_count })} · {t('count.supplies', { n: store.supply_count })}
           </span>
         </div>
       </div>
       <div className="store-month">
-        <span className="muted">This month</span>
-        <span><b className="mono">{baht(store.month.profit)}</b> <span className="muted">profit on {store.month.units} sold</span></span>
+        <span className="muted">{t('store.thisMonth')}</span>
+        <span><b className="mono">{baht(store.month.profit)}</b> <span className="muted">{t('store.profitOn', { n: store.month.units })}</span></span>
       </div>
       <div className="store-actions">
-        <button className="btn primary" onClick={() => onOpen(store.id)} disabled={isCurrent}>{isCurrent ? 'Open' : 'Open store'}</button>
-        <button className="btn" onClick={() => setEditing(true)}>Rename</button>
-        <button className="btn danger" onClick={() => onDelete(store)} disabled={!canDelete} title={canDelete ? undefined : 'You need at least one store'}>Delete</button>
+        <button className="btn primary" onClick={() => onOpen(store.id)} disabled={isCurrent}>{isCurrent ? t('store.open') : t('store.openStore')}</button>
+        <button className="btn" onClick={() => setEditing(true)}>{t('common.rename')}</button>
+        <button className="btn danger" onClick={() => onDelete(store)} disabled={!canDelete} title={canDelete ? undefined : t('store.needOne')}>{t('common.delete')}</button>
       </div>
     </article>
   );
 }
 
 export default function Stores() {
+  const { t } = useI18n();
   const { stores, current, select, create, rename, remove, refresh } = useStores();
   const [deleted, setDeleted] = useState([]);
   const loadDeleted = () => api.get('/api/stores/deleted').then(setDeleted).catch(() => {});
@@ -157,7 +161,7 @@ export default function Stores() {
   };
 
   const doDelete = async (store) => {
-    if (!window.confirm(`Delete "${store.name}"?\n\nIt is hidden with everything in it (${store.shop_count} shops, ${store.product_count} products, ${store.supply_count} supplies and its sold log). You can restore it from "Deleted stores" on this page.`)) return;
+    if (!window.confirm(t('store.confirmDelete', { name: store.name, shops: store.shop_count, products: store.product_count, supplies: store.supply_count }))) return;
     setError('');
     try {
       await remove(store.id);
@@ -171,10 +175,10 @@ export default function Stores() {
     <>
       <header className="page-head">
         <div>
-          <h1>Stores</h1>
-          <p>Each store is a separate business with its own supplies, products, shops and sold log. Pick one from the menu at the top left to work in it.</p>
+          <h1>{t('store.pageTitle')}</h1>
+          <p>{t('store.pageHelp')}</p>
         </div>
-        <button className="btn primary" onClick={() => setShowNew(true)}>+ New store</button>
+        <button className="btn primary" onClick={() => setShowNew(true)}>{t('store.newPlus')}</button>
       </header>
       {error && <div className="error">{error}</div>}
 
@@ -193,8 +197,8 @@ export default function Stores() {
       </div>
 
       <TrashList
-        title="Deleted stores"
-        items={deleted.map((d) => ({ id: d.id, title: d.name, detail: `${d.shop_count} shops · ${d.product_count} products · deleted ${shortDate(d.deleted_at)}` }))}
+        title={t('store.deletedTitle')}
+        items={deleted.map((d) => ({ id: d.id, title: d.name, detail: t('store.deletedDetail', { shops: d.shop_count, products: d.product_count, date: shortDate(d.deleted_at) }) }))}
         onRestore={async (it) => {
           setError('');
           try {

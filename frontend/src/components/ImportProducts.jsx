@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api.js';
 import { useStores } from '../store.jsx';
+import { useI18n } from '../i18n.jsx';
 
 // Pick products one by one from another store. Each comes with its recipe; ingredients you don't have yet are copied too.
 export default function ImportProducts({ haveNames, onDone, onCancel }) {
+  const { t } = useI18n();
   const { stores, current } = useStores();
   const others = stores.filter((s) => s.id !== current.id);
   const [fromId, setFromId] = useState(String(others[0]?.id ?? ''));
@@ -40,19 +42,19 @@ export default function ImportProducts({ haveNames, onDone, onCancel }) {
     <form className="card card-pad" onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, alignItems: 'flex-end', justifyContent: 'space-between' }}>
         <div>
-          <h2 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 600 }}>Copy products into {current.name}</h2>
+          <h2 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 600 }}>{t('importProducts.title', { name: current.name })}</h2>
           <p className="muted" style={{ margin: 0, fontSize: 14, maxWidth: 560 }}>
-            Tick the products you want, one by one. Each comes with its recipe, and any ingredient you don't have yet is copied too. Put it in a shop afterwards on the Shops page.
+            {t('importProducts.help')}
           </p>
         </div>
-        <label className="field">Copy from
+        <label className="field">{t('common.copyFrom')}
           <select className="input" value={fromId} onChange={(e) => setFromId(e.target.value)}>
             {others.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
         </label>
       </div>
       {error && <div className="error">{error}</div>}
-      {source && source.length === 0 && <p className="muted" style={{ margin: 0 }}>That store has no products yet.</p>}
+      {source && source.length === 0 && <p className="muted" style={{ margin: 0 }}>{t('importProducts.sourceEmpty')}</p>}
       <div className="import-list product-list">
         {(source ?? []).map((p) => (
           <label key={p.id} className={`import-row tall ${have(p) ? 'have' : ''}`}>
@@ -60,7 +62,7 @@ export default function ImportProducts({ haveNames, onDone, onCancel }) {
             <span style={{ flex: 1, minWidth: 0 }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontWeight: 600 }}>
                 {p.name}
-                {have(p) && <span className="badge ok">Already here</span>}
+                {have(p) && <span className="badge ok">{t('common.alreadyHere')}</span>}
               </span>
               <span className="muted" style={{ display: 'block', fontSize: 13, lineHeight: 1.4 }}>
                 {p.recipe.map((r) => `${r.name} ${r.display}`).join(' · ')}
@@ -71,11 +73,11 @@ export default function ImportProducts({ haveNames, onDone, onCancel }) {
       </div>
       <div style={{ display: 'flex', gap: 8 }}>
         <button className="btn primary" type="submit" disabled={saving || picked.size === 0}>
-          {saving ? 'Copying…' : `Copy ${picked.size || ''} ${picked.size === 1 ? 'product' : 'products'}`}
+          {saving ? t('importProducts.copying') : picked.size ? t('importProducts.copyButton', { n: picked.size }) : t('importProducts.copyButtonNone')}
         </button>
-        <button className="btn" type="button" onClick={onCancel} disabled={saving}>Cancel</button>
+        <button className="btn" type="button" onClick={onCancel} disabled={saving}>{t('common.cancel')}</button>
       </div>
-      {available.length === 0 && source && source.length > 0 && <p className="muted" style={{ margin: 0, fontSize: 13 }}>You already have every product from this store.</p>}
+      {available.length === 0 && source && source.length > 0 && <p className="muted" style={{ margin: 0, fontSize: 13 }}>{t('importProducts.haveAll')}</p>}
     </form>
   );
 }
